@@ -187,7 +187,7 @@ export default function EscanearScreen() {
         </View>
         <Text style={styles.sessionTitle}>{sesionActiva.materia_nombre}</Text>
         <Text style={styles.sessionSubtitle}>
-          {format(new Date(sesionActiva.fecha), "d 'de' MMMM, yyyy", { locale: es })}
+          {format(new Date(sesionActiva.fecha), "d 'de' MMMM, yyyy")}
         </Text>
       </View>
 
