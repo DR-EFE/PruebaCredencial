@@ -14,7 +14,6 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useSesionStore } from '../../store/useSesionStore';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface Materia {
   id: number;
