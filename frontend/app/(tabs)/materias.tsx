@@ -9,9 +9,9 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { supabase } from '../../lib/supabase';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useSesionStore } from '../../store/useSesionStore';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/useAuthStore';
+import { useSesionStore } from '../store/useSesionStore';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 

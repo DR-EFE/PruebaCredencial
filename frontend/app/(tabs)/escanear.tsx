@@ -9,9 +9,9 @@ import {
   Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { supabase } from '../../lib/supabase';
-import { useSesionStore } from '../../store/useSesionStore';
-import { useAuthStore } from '../../store/useAuthStore';
+import { supabase } from '../lib/supabase';
+import { useSesionStore } from '../store/useSesionStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
@@ -162,7 +162,7 @@ export default function EscanearScreen() {
 
       const mensaje =
         estado === 'presente'
-          ? `Â¡Asistencia registrada!\n${estudiante.nombre} ${estudiante.apellido}`
+          ? `¡Asistencia registrada!\n${estudiante.nombre} ${estudiante.apellido}`
           : `Tardanza registrada\n${estudiante.nombre} ${estudiante.apellido}\n${minutosTardanza} minutos tarde`;
 
       Alert.alert('Éxito', mensaje);
