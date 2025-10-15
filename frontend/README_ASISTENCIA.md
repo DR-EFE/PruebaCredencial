@@ -63,14 +63,14 @@ Aplicación móvil en React Native con Expo para el registro de asistencia media
 ### Configuración
 - `app.json`: Configuración de Expo y credenciales
 - `.env`: Variables de entorno
-- `app/lib/supabase.ts`: Cliente de Supabase
+- `lib/supabase.ts`: Cliente de Supabase
 
 ### Estado Global
-- `app/store/useAuthStore.ts`: Estado de autenticación
-- `app/store/useSesionStore.ts`: Estado de sesión activa
+- `store/useAuthStore.ts`: Estado de autenticación
+- `store/useSesionStore.ts`: Estado de sesión activa
 
 ### Contexto
-- `app/contexts/AuthContext.tsx`: Proveedor de autenticación
+- `contexts/AuthContext.tsx`: Proveedor de autenticación
 
 ## Base de Datos
 

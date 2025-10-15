@@ -8,8 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/useAuthStore';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 

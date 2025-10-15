@@ -7,9 +7,9 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/useAuthStore';
-import { useSesionStore } from '../store/useSesionStore';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useSesionStore } from '@/store/useSesionStore';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 

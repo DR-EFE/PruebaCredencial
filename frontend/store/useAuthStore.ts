@@ -6,6 +6,7 @@ interface Profesor {
   nombre: string;
   apellido: string;
   activo: boolean;
+  verified?: boolean;
 }
 
 interface AuthState {

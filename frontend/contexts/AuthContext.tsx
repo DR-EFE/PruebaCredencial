@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/useAuthStore';
 import { Session } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface AuthContextType {
   session: Session | null;
@@ -55,27 +55,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!session) return;
 
     try {
+      // The trigger now creates the professor, so we only need to fetch it.
       const { data: profesor, error } = await supabase
         .from('profesores')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error && error.code === 'PGRST116') {
-        const { data: newProfesor, error: insertError } = await supabase
-          .from('profesores')
-          .insert({
-            id: userId,
-            nombre: session.user.user_metadata.nombre,
-            apellido: session.user.user_metadata.apellido,
-            verified: !!session.user.email_confirmed_at,
-          })
-          .select('*')
-          .single();
+      if (error) {
+        // If the professor is not found, it's an unexpected error because the trigger should have created it.
+        throw error;
+      }
 
-        if (insertError) throw insertError;
-        setProfesor(newProfesor);
-      } else if (profesor && session.user.email_confirmed_at && !profesor.verified) {
+      // If the user is verified but the profile isn't, update it.
+      if (profesor && session.user.email_confirmed_at && !profesor.verified) {
         const { data: updatedProfesor, error: updateError } = await supabase
           .from('profesores')
           .update({ verified: true })
