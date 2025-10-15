@@ -21,53 +21,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { setUser, setProfesor, setLoading: setStoreLoading } = useAuthStore();
 
   useEffect(() => {
-    // Obtener sesión inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
-      
       if (session?.user) {
-        // Cargar datos del profesor
-        loadProfesor(session.user.id);
-      } else {
-        setLoading(false);
-        setStoreLoading(false);
+        await loadProfesor(session.user.id, session);
       }
-    });
+      setLoading(false);
+      setStoreLoading(false);
+    };
 
-    // Escuchar cambios de autenticación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    fetchSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
       if (session?.user) {
-        loadProfesor(session.user.id);
+        await loadProfesor(session.user.id, session);
       } else {
         setProfesor(null);
-        setLoading(false);
-        setStoreLoading(false);
       }
+      setLoading(false);
+      setStoreLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const loadProfesor = async (userId: string) => {
+  const loadProfesor = async (userId: string, session: Session | null) => {
+    if (!session) return;
+
     try {
-      const { data, error } = await supabase
+      const { data: profesor, error } = await supabase
         .from('profesores')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
-      setProfesor(data);
-    } catch (error) {
-      console.error('Error loading profesor:', error);
+      if (error && error.code === 'PGRST116') {
+        const { data: newProfesor, error: insertError } = await supabase
+          .from('profesores')
+          .insert({
+            id: userId,
+            nombre: session.user.user_metadata.nombre,
+            apellido: session.user.user_metadata.apellido,
+            verified: !!session.user.email_confirmed_at,
+          })
+          .select('*')
+          .single();
+
+        if (insertError) throw insertError;
+        setProfesor(newProfesor);
+      } else if (profesor && session.user.email_confirmed_at && !profesor.verified) {
+        const { data: updatedProfesor, error: updateError } = await supabase
+          .from('profesores')
+          .update({ verified: true })
+          .eq('id', userId)
+          .select('*')
+          .single();
+
+        if (updateError) throw updateError;
+        setProfesor(updatedProfesor);
+      } else {
+        setProfesor(profesor);
+      }
+    } catch (err) {
+      console.error('Error loading or updating professor:', err);
       setProfesor(null);
-    } finally {
-      setLoading(false);
-      setStoreLoading(false);
     }
   };
 

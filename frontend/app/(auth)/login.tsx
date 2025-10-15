@@ -10,9 +10,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { supabase } from '../lib/supabase';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { supabase } from '../lib/supabase';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -23,35 +23,24 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor ingresa email y contraseña');
+      Alert.alert('Error', 'Por favor ingresa correo y contraseña');
       return;
     }
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
-      if (error) throw error;
-
-      // Verificar que sea profesor
-      const { data: profesorData, error: profesorError } = await supabase
-        .from('profesores')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profesorError || !profesorData) {
-        await supabase.auth.signOut();
-        Alert.alert('Error', 'No tienes permisos de profesor');
-        return;
+      if (error) {
+        throw error;
       }
 
       router.replace('/(tabs)');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al iniciar sesión');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
@@ -63,7 +52,6 @@ export default function LoginScreen() {
       style={styles.container}
     >
       <View style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.iconContainer}>
             <Ionicons name="school" size={64} color="#2563eb" />
@@ -72,7 +60,6 @@ export default function LoginScreen() {
           <Text style={styles.subtitle}>Sistema de Registro Docente</Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           <View style={styles.inputContainer}>
             <Ionicons name="mail-outline" size={20} color="#6b7280" style={styles.inputIcon} />
@@ -97,10 +84,7 @@ export default function LoginScreen() {
               secureTextEntry={!showPassword}
               editable={!loading}
             />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeIcon}
-            >
+            <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.eyeIcon}>
               <Ionicons
                 name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                 size={20}
@@ -120,9 +104,15 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Iniciar Sesión</Text>
             )}
           </TouchableOpacity>
+
+          <View style={styles.registerPrompt}>
+            <Text style={styles.registerText}>¿No tienes cuenta?</Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')} disabled={loading}>
+              <Text style={styles.registerLink}>Regístrate</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Instituto Politécnico Nacional</Text>
           <Text style={styles.footerSubtext}>UPIICSA</Text>
@@ -205,6 +195,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  registerPrompt: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  registerText: {
+    color: '#6b7280',
+    marginRight: 6,
+    fontSize: 14,
+  },
+  registerLink: {
+    color: '#2563eb',
+    fontWeight: '600',
+    fontSize: 14,
   },
   footer: {
     alignItems: 'center',

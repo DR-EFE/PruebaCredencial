@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
-import { Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   session: Session | null;
@@ -27,8 +27,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Cargar datos del profesor
-        loadProfesor(session.user.id);
+        loadProfesor(session.user);
       } else {
         setLoading(false);
         setStoreLoading(false);
@@ -41,7 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        loadProfesor(session.user.id);
+        loadProfesor(session.user);
       } else {
         setProfesor(null);
         setLoading(false);
@@ -52,16 +51,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadProfesor = async (userId: string) => {
+  const loadProfesor = async (user: User) => {
     try {
       const { data, error } = await supabase
         .from('profesores')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('id', user.id)
+        .maybeSingle();
 
-      if (error) throw error;
-      setProfesor(data);
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setProfesor(data);
+      } else {
+        setProfesor(null);
+      }
     } catch (error) {
       console.error('Error loading profesor:', error);
       setProfesor(null);
