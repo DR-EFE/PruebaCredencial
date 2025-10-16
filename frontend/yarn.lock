@@ -1645,6 +1645,13 @@
   dependencies:
     "@radix-ui/react-compose-refs" "1.1.2"
 
+"@react-native-community/datetimepicker@^8.4.5":
+  version "8.4.5"
+  resolved "https://registry.npmjs.org/@react-native-community/datetimepicker/-/datetimepicker-8.4.5.tgz"
+  integrity sha512-vvVOJAHjU8TFBzTUjQzANCL6C3pZSE2zjfutCATk790uz7ASEc2tOBD+EIG4BTelWtP2G9jqvXp2L7XGdhEBRg==
+  dependencies:
+    invariant "^2.2.4"
+
 "@react-native/assets-registry@0.79.5":
   version "0.79.5"
   resolved "https://registry.npmjs.org/@react-native/assets-registry/-/assets-registry-0.79.5.tgz"
@@ -2097,6 +2104,13 @@
   integrity sha512-oaeTSbCef7U/z7rDeJA138xpG3NuKc64/rZ2qmUFkFJmnMsAPaluIifqyWd8hSSMxyP9oie3dLAqYPblag9KgA==
   dependencies:
     undici-types "~7.8.0"
+
+"@types/papaparse@^5.3.16":
+  version "5.3.16"
+  resolved "https://registry.npmjs.org/@types/papaparse/-/papaparse-5.3.16.tgz"
+  integrity sha512-T3VuKMC2H0lgsjI9buTB3uuKj3EMD2eap1MOuEQuBQ44EnDx/IkGhU6EwiTf9zG3za4SKlmwKAImdDKdNnCsXg==
+  dependencies:
+    "@types/node" "*"
 
 "@types/phoenix@^1.6.6":
   version "1.6.6"
@@ -3772,6 +3786,11 @@ expo-constants@~18.0.9:
     "@expo/config" "~12.0.9"
     "@expo/env" "~2.0.7"
 
+expo-document-picker@~14.0.7:
+  version "14.0.7"
+  resolved "https://registry.npmjs.org/expo-document-picker/-/expo-document-picker-14.0.7.tgz"
+  integrity sha512-81Jh8RDD0GYBUoSTmIBq30hXXjmkDV1ZY2BNIp1+3HR5PDSh2WmdhD/Ezz5YFsv46hIXHsQc+Kh1q8vn6OLT9Q==
+
 expo-file-system@~19.0.17:
   version "19.0.17"
   resolved "https://registry.npmjs.org/expo-file-system/-/expo-file-system-19.0.17.tgz"
@@ -3898,7 +3917,7 @@ expo-web-browser@~14.2.0:
   resolved "https://registry.npmjs.org/expo-web-browser/-/expo-web-browser-14.2.0.tgz"
   integrity sha512-6S51d8pVlDRDsgGAp8BPpwnxtyKiMWEFdezNz+5jVIyT+ctReW42uxnjRgtsdn5sXaqzhaX+Tzk/CWaKCyC0hw==
 
-expo@*, expo@^54.0.13:
+expo@*, expo@^54.0.13, expo@>=52.0.0:
   version "54.0.13"
   resolved "https://registry.npmjs.org/expo/-/expo-54.0.13.tgz"
   integrity sha512-F1puKXzw8ESnsbvaKdXtcIiyYLQ2kUHqP8LuhgtJS1wm6w55VhtOPg8yl/0i8kPbTA0YfD+KYdXjSfhPXgUPxw==
@@ -5912,6 +5931,11 @@ package-json-from-dist@^1.0.0:
   version "1.0.1"
   resolved "https://registry.npmjs.org/package-json-from-dist/-/package-json-from-dist-1.0.1.tgz"
   integrity sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==
+
+papaparse@^5.5.3:
+  version "5.5.3"
+  resolved "https://registry.npmjs.org/papaparse/-/papaparse-5.5.3.tgz"
+  integrity sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==
 
 parent-module@^1.0.0:
   version "1.0.1"

@@ -7,20 +7,190 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  FlatList,
+  Modal,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase } from '@/lib/supabase';
-import { useSesionStore } from '@/store/useSesionStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
+interface Materia {
+  id: number;
+  nombre: string;
+  codigo?: string;
+  grupo?: string;
+}
+
+interface SesionActiva {
+  id: number;
+  materia_id: number;
+  fecha: string;
+  tema: string | null;
+  hora_inicio: string;
+  estado: string;
+  materia_nombre: string;
+}
+
 export default function EscanearScreen() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [scanning, setScanning] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const { sesionActiva } = useSesionStore();
+  const [materias, setMaterias] = useState<Materia[]>([]);
+  const [loadingMaterias, setLoadingMaterias] = useState(true);
+  const [selectedMateriaId, setSelectedMateriaId] = useState<number | null>(null);
+  const [sesionActiva, setSesionActiva] = useState<SesionActiva | null>(null);
+  const [loadingSesion, setLoadingSesion] = useState(false);
+  const [isPickerVisible, setPickerVisible] = useState(false);
   const profesor = useAuthStore((state) => state.profesor);
+  const selectedMateria = selectedMateriaId
+    ? materias.find((materia) => materia.id === selectedMateriaId) ?? null
+    : null;
+  const canScan = !!sesionActiva && !loadingSesion;
+
+  useEffect(() => {
+    if (!profesor) return;
+    loadMaterias();
+  }, [profesor]);
+
+  useEffect(() => {
+    if (!selectedMateria) {
+      setSesionActiva(null);
+      setScanning(false);
+      return;
+    }
+    ensureSesion(selectedMateria);
+  }, [selectedMateriaId]);
+
+  useEffect(() => {
+    if (!isPickerVisible && canScan && !processing) {
+      setScanning(true);
+    }
+  }, [isPickerVisible, canScan, processing]);
+
+  const loadMaterias = async () => {
+    try {
+      if (!profesor) return;
+      setLoadingMaterias(true);
+      const { data, error } = await supabase
+        .from('materias')
+        .select('id, nombre, codigo, grupo')
+        .eq('profesor_id', profesor.id)
+        .eq('activo', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setMaterias(data || []);
+      if (data && data.length > 0) {
+        setSelectedMateriaId((prev) =>
+          prev && data.some((materia) => materia.id === prev) ? prev : data[0].id
+        );
+      } else {
+        setSelectedMateriaId(null);
+      }
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', 'No se pudieron cargar las materias');
+    } finally {
+      setLoadingMaterias(false);
+    }
+  };
+
+  const ensureSesion = async (materia: Materia) => {
+    try {
+      setLoadingSesion(true);
+      setProcessing(false);
+      setScanning(false);
+
+      const today = format(new Date(), 'yyyy-MM-dd');
+
+      if (
+        sesionActiva &&
+        sesionActiva.materia_id === materia.id &&
+        sesionActiva.fecha &&
+        sesionActiva.fecha.startsWith(today)
+      ) {
+        setScanning(true);
+        return;
+      }
+
+      const { data: existingSessions, error: existingError } = await supabase
+        .from('sesiones')
+        .select('*')
+        .eq('materia_id', materia.id)
+        .eq('fecha', today)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (existingError) throw existingError;
+
+      if (existingSessions && existingSessions.length > 0) {
+        const session = existingSessions[0];
+        setSesionActiva({
+          ...session,
+          materia_nombre: materia.nombre,
+        });
+        setScanning(true);
+        return;
+      }
+
+      const horaInicio = format(new Date(), 'HH:mm:ss');
+      const { data: nuevaSesion, error: createError } = await supabase
+        .from('sesiones')
+        .insert({
+          materia_id: materia.id,
+          fecha: today,
+          tema: 'Asistencia',
+          hora_inicio: horaInicio,
+          estado: 'impartida',
+          created_by: profesor?.id,
+        })
+        .select('*')
+        .single();
+
+      if (createError) throw createError;
+
+      setSesionActiva({
+        ...nuevaSesion,
+        materia_nombre: materia.nombre,
+      });
+      setScanning(true);
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', 'No se pudo preparar la sesión para escanear');
+      setSesionActiva(null);
+    } finally {
+      setLoadingSesion(false);
+    }
+  };
+
+  const renderMateriaOption = ({ item }: { item: Materia }) => {
+    const isActive = item.id === selectedMateriaId;
+    const details: string[] = [];
+    if (item.codigo) details.push(item.codigo);
+    if (item.grupo) details.push(`Grupo ${item.grupo}`);
+
+    return (
+      <TouchableOpacity
+        style={[styles.modalItem, isActive && styles.modalItemActive]}
+        onPress={() => {
+          setProcessing(false);
+          setScanning(false);
+          setSelectedMateriaId(item.id);
+          setPickerVisible(false);
+        }}
+      >
+        <Text style={[styles.modalItemText, isActive && styles.modalItemTextActive]}>
+          {item.nombre}
+        </Text>
+        {details.length > 0 && (
+          <Text style={styles.modalItemSubtext}>{details.join(' | ')}</Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   if (!permission) {
     return (
@@ -61,8 +231,33 @@ export default function EscanearScreen() {
     );
   }
 
+  if (loadingMaterias) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noSessionContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.noSessionTitle}>Cargando materias</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (materias.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noSessionContainer}>
+          <Ionicons name="book-outline" size={64} color="#d1d5db" />
+          <Text style={styles.noSessionTitle}>No tienes materias registradas</Text>
+          <Text style={styles.noSessionText}>
+            Crea materias desde la pantalla de Mis Materias para comenzar a registrar asistencias.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (processing || !scanning) return;
+    if (processing || !scanning || !sesionActiva) return;
 
     setProcessing(true);
     setScanning(false);
@@ -131,7 +326,8 @@ export default function EscanearScreen() {
       }
 
       // Calcular tardanza (si han pasado más de 10 minutos)
-      const horaInicio = new Date(`2000-01-01T${sesionActiva.hora_inicio}`);
+      const horaReferencia = sesionActiva.hora_inicio || format(new Date(), 'HH:mm:ss');
+      const horaInicio = new Date(`2000-01-01T${horaReferencia}`);
       const horaActual = new Date();
       const diferenciaMinutos = Math.floor(
         (horaActual.getTime() - horaInicio.getTime()) / (1000 * 60)
@@ -179,24 +375,55 @@ export default function EscanearScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Info de sesión activa */}
       <View style={styles.sessionInfo}>
-        <View style={styles.sessionBadge}>
-          <Ionicons name="radio-button-on" size={12} color="#10b981" />
-          <Text style={styles.sessionBadgeText}>Sesión Activa</Text>
-        </View>
-        <Text style={styles.sessionTitle}>{sesionActiva.materia_nombre}</Text>
-        <Text style={styles.sessionSubtitle}>
-          {format(new Date(sesionActiva.fecha), "d 'de' MMMM, yyyy")}
-        </Text>
+        <Text style={styles.selectorLabel}>Materia</Text>
+        <TouchableOpacity
+          style={styles.selectorInput}
+          onPress={() => {
+            setScanning(false);
+            setPickerVisible(true);
+          }}
+        >
+          <Text style={styles.selectorValue}>
+            {selectedMateria ? selectedMateria.nombre : 'Selecciona una materia'}
+          </Text>
+          <Ionicons
+            name={isPickerVisible ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color="#2563eb"
+          />
+        </TouchableOpacity>
+
+        {selectedMateria && (
+          loadingSesion ? (
+            <View style={styles.sessionLoading}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <Text style={styles.sessionLoadingText}>Preparando sesion...</Text>
+            </View>
+          ) : sesionActiva ? (
+            <>
+              <View style={styles.sessionBadge}>
+                <Ionicons name="radio-button-on" size={12} color="#10b981" />
+                <Text style={styles.sessionBadgeText}>Sesion lista</Text>
+              </View>
+              <Text style={styles.sessionTitle}>{sesionActiva.materia_nombre}</Text>
+              <Text style={styles.sessionSubtitle}>
+                {format(new Date(sesionActiva.fecha), "d 'de' MMMM, yyyy")}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.sessionHelper}>
+              Selecciona una materia para preparar la sesion de asistencia.
+            </Text>
+          )
+        )}
       </View>
 
-      {/* Cámara */}
       <View style={styles.cameraContainer}>
         <CameraView
           style={styles.camera}
           facing="back"
-          onBarcodeScanned={scanning ? handleBarCodeScanned : undefined}
+          onBarcodeScanned={canScan && scanning ? handleBarCodeScanned : undefined}
           barcodeScannerSettings={{
             barcodeTypes: ['qr'],
           }}
@@ -212,15 +439,42 @@ export default function EscanearScreen() {
         </CameraView>
       </View>
 
-      {/* Instrucciones */}
       <View style={styles.instructions}>
         <Text style={styles.instructionsTitle}>
-          {processing ? 'Procesando...' : 'Escanea la credencial del estudiante'}
+          {processing
+            ? 'Procesando...'
+            : canScan
+            ? 'Escanea la credencial del estudiante'
+            : 'Selecciona una materia para comenzar'}
         </Text>
         <Text style={styles.instructionsText}>
-          Coloca el código QR dentro del marco
+          {canScan
+            ? 'Coloca el codigo QR dentro del marco'
+            : 'Elige una materia para iniciar el registro de asistencia'}
         </Text>
       </View>
+
+      <Modal
+        visible={isPickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Tus materias</Text>
+            <FlatList
+              data={materias}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderMateriaOption}
+              contentContainerStyle={styles.modalList}
+            />
+            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setPickerVisible(false)}>
+              <Text style={styles.modalCloseText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {processing && (
         <View style={styles.processingOverlay}>
@@ -294,6 +548,38 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
+  selectorLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    letterSpacing: 0.8,
+  },
+  selectorInput: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  selectorValue: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '500',
+  },
+  sessionLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sessionLoadingText: {
+    fontSize: 14,
+    color: '#2563eb',
+    marginLeft: 8,
+  },
   sessionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -317,6 +603,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sessionSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  sessionHelper: {
     fontSize: 14,
     color: '#6b7280',
   },
@@ -387,5 +677,65 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  modalList: {
+    paddingVertical: 4,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 8,
+  },
+  modalItemActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff',
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  modalItemTextActive: {
+    color: '#1d4ed8',
+  },
+  modalItemSubtext: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  modalCloseButton: {
+    marginTop: 4,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
