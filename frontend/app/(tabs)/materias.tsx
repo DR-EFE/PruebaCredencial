@@ -199,7 +199,7 @@ export default function MateriasScreen() {
         Alert.alert('?xito', 'Materia creada correctamente.');
         closeModal();
         loadMaterias();
-        router.push({ pathname: '/(tabs)/addAlumnos', params: { materia_id: newMateriaId } });
+        router.push({ pathname: '/(tabs)/materiaDetalle', params: { materia_id: newMateriaId } });
         return;
       }
 
@@ -292,7 +292,9 @@ export default function MateriasScreen() {
     return (
       <TouchableOpacity
         activeOpacity={0.9}
-        onPress={() => toggleMateriaActions(item.id)}
+        onPress={() => router.push({ pathname: '/(tabs)/materiaDetalle', params: { materia_id: item.id } })}
+        onLongPress={() => toggleMateriaActions(item.id)}
+        delayLongPress={300}
         style={[styles.card, isSelected && styles.cardSelected]}
       >
         <View style={styles.cardHeader}>
@@ -445,7 +447,7 @@ export default function MateriasScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb', paddingHorizontal: 20 },
-  listContent: { padding: 16, paddingBottom: 100 },
+  listContent: { padding: 16, paddingBottom: 120 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   cardSelected: { borderWidth: 2, borderColor: '#2563eb' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -463,7 +465,7 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 14, color: '#6b7280', marginLeft: 8 },
   emptyText: { fontSize: 16, color: '#9ca3af', marginTop: 16, textAlign: 'center' },
   emptySubText: { fontSize: 14, color: '#9ca3af', marginTop: 8, textAlign: 'center' },
-  fab: { position: 'absolute', right: 24, bottom: 40, width: 60, height: 60, borderRadius: 30, backgroundColor: '#2563eb', justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
+  fab: { position: 'absolute', right: 24, bottom: 110, width: 60, height: 60, borderRadius: 30, backgroundColor: '#2563eb', justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
   modalContainer: { flex: 1, backgroundColor: '#f9fafb' },
   modalContent: { padding: 24, paddingTop: 50 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },

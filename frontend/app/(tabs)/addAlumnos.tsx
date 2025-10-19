@@ -17,6 +17,13 @@ export default function AddAlumnosScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const profesor = useAuthStore((state) => state.profesor);
 
+  const isValidBoleta = (boleta: string) => {
+    // Assuming a valid "boleta" is a 10-digit number based on "chk_boleta_format".
+    // This regex can be adjusted if the format is different.
+    const boletaRegex = /^\d{10}$/;
+    return boletaRegex.test(boleta);
+  };
+
   const handleFilePick = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
@@ -30,8 +37,23 @@ export default function AddAlumnosScreen() {
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
-            const boletas = results.data.map((row: any) => ({ boleta: row.boleta })).filter(item => item.boleta);
-            setNewAlumnos(boletas);
+            const parsedBoletas = results.data.map((row: any) => row.boleta).filter(Boolean);
+            const validBoletas = parsedBoletas.filter(isValidBoleta);
+            const invalidBoletas = parsedBoletas.filter((b: any) => !isValidBoleta(b));
+
+            if (invalidBoletas.length > 0) {
+              Alert.alert(
+                'Boletas no válidas',
+                `Se encontraron ${invalidBoletas.length} boletas con formato incorrecto. Solo se cargarán las válidas.\n\nNo válidas: ${invalidBoletas.slice(0, 5).join(', ')}${invalidBoletas.length > 5 ? '...' : ''}`
+              );
+            }
+            
+            if (validBoletas.length === 0 && parsedBoletas.length > 0) {
+                Alert.alert('Error', 'Ninguna de las boletas en el archivo CSV tiene el formato correcto (10 dígitos numéricos).');
+                setNewAlumnos([]);
+            } else {
+                setNewAlumnos(validBoletas.map((boleta: string) => ({ boleta })))
+            }
           },
         });
       }
@@ -70,15 +92,73 @@ export default function AddAlumnosScreen() {
       Alert.alert('Campo incompleto', 'La boleta del alumno es requerida.');
       return;
     }
+    if (!isValidBoleta(manualBoleta)) {
+        Alert.alert('Formato incorrecto', 'La boleta debe ser un número de 10 dígitos.');
+        return;
+    }
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('inscripciones').insert({
+      const materiaId = parseInt(materia_id as string, 10);
+
+      // 1. Check for existing inscription
+      const { data: existingInscription, error: inscriptionError } = await supabase
+        .from('inscripciones')
+        .select('id')
+        .eq('boleta', manualBoleta)
+        .eq('materia_id', materiaId)
+        .single();
+
+      if (inscriptionError && inscriptionError.code !== 'PGRST116') { // PGRST116: "The query returned no rows"
+        throw inscriptionError;
+      }
+
+      if (existingInscription) {
+        Alert.alert('Alumno ya inscrito', 'Este alumno ya se encuentra inscrito en la materia.');
+        setIsSaving(false); // Stop loading indicator
+        return;
+      }
+
+      // 2. Check for existing student
+      const { data: existingStudent, error: studentError } = await supabase
+        .from('estudiantes')
+        .select('boleta')
+        .eq('boleta', manualBoleta)
+        .single();
+
+      if (studentError && studentError.code !== 'PGRST116') {
+        throw studentError;
+      }
+
+      // Create student if it does not exist
+      if (!existingStudent) {
+        // NOTE: Creating a student with placeholder data as we only have the boleta.
+        // The user should update the student's details later.
+        const { error: newStudentError } = await supabase.from('estudiantes').insert({
+          boleta: manualBoleta,
+          curp: `${manualBoleta}`.padEnd(18, 'X'), // Placeholder CURP
+          nombre: 'Estudiante', // Placeholder
+          apellido: manualBoleta, // Placeholder
+          carrera: 'Ingeniería', // Placeholder
+          turno: 'Matutino', // Placeholder
+          created_by: profesor.id,
+        });
+        if (newStudentError) {
+            // If the student was created by another concurrent request, ignore the duplicate error.
+            if (newStudentError.code !== '23505') {
+                throw newStudentError;
+            }
+        }
+      }
+
+      // 3. Create inscription
+      const { error: newInscriptionError } = await supabase.from('inscripciones').insert({
         boleta: manualBoleta,
-        materia_id: parseInt(materia_id as string, 10),
+        materia_id: materiaId,
         estado_inscripcion: 'activa',
         created_by: profesor.id,
       });
-      if (error) throw error;
+      if (newInscriptionError) throw newInscriptionError;
+
       Alert.alert('Éxito', 'Alumno inscrito correctamente.');
       setManualBoleta('');
     } catch (error: any) {

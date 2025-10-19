@@ -15,6 +15,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import * as Crypto from 'expo-crypto';
+import * as Network from 'expo-network';
 
 interface Materia {
   id: number;
@@ -32,6 +34,190 @@ interface SesionActiva {
   estado: string;
   materia_nombre: string;
 }
+
+interface ScrapedStudent {
+  boleta: string;
+  nombreCompleto: string;
+  carrera?: string;
+  escuela?: string;
+}
+
+const SCRAPER_ALLOWED_DOMAINS = [
+  'servicios.dae.ipn.mx',
+  'upiicsa.ipn.mx',
+  'ipn.mx',
+];
+
+
+
+
+const sanitizeText = (text: string) =>
+  text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#(\d+);/g, (_, code) => {
+      const parsed = Number(code);
+      return Number.isFinite(parsed) ? String.fromCharCode(parsed) : '';
+    })
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const parseStudentHtml = (html: string): ScrapedStudent => {
+  const boletaMatch = html.match(/Boleta:\s*([0-9]{8,10})/i);
+  const nombreMatch = html.match(/Nombre:\s*([^<\n]+)/i);
+  const carreraMatch = html.match(/Programa\s+acad[eé]mico:\s*([^<\n]+)/i);
+  const escuelaMatch =
+    html.match(/Unidad\s+Profesional[^<]+/i) ||
+    html.match(/UPIICSA/i);
+
+  if (!boletaMatch || !nombreMatch) {
+    throw new Error(
+      'Datos estudiantiles incompletos o inválidos (no se encontró boleta o nombre)'
+    );
+  }
+
+  return {
+    boleta: sanitizeText(boletaMatch[1]),
+    nombreCompleto: sanitizeText(nombreMatch[1]),
+    carrera: carreraMatch ? sanitizeText(carreraMatch[1]) : undefined,
+    escuela: escuelaMatch ? sanitizeText(escuelaMatch[0]) : 'UPIICSA',
+  };
+};
+
+const isAllowedUrl = (url: URL) =>
+  url.protocol === 'https:' &&
+  SCRAPER_ALLOWED_DOMAINS.some((host) => url.hostname.toLowerCase().endsWith(host));
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const checkConnectivity = async () => {
+  const networkState = await Network.getNetworkStateAsync();
+  if (!networkState.isConnected) {
+    throw new Error('No hay conexión a internet');
+  }
+
+  const ipAddress = await Network.getIpAddressAsync();
+  if (!ipAddress) {
+    throw new Error('La red no está reachable');
+  }
+};
+
+const fetchWithXMLHttpRequest = (url: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.timeout = 15000;
+      xhr.open('GET', url, true);
+
+      try {
+        xhr.setRequestHeader(
+          'User-Agent',
+          'Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36'
+        );
+      } catch {
+        // Algunos entornos no permiten modificar el User-Agent explícitamente
+      }
+
+      xhr.onload = function onLoad() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.responseText);
+        } else {
+          reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+        }
+      };
+
+      xhr.onerror = function onError() {
+        reject(new Error('Error de red'));
+      };
+
+      xhr.ontimeout = function onTimeout() {
+        reject(new Error('Timeout'));
+      };
+
+      xhr.send();
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+
+const fetchStudentProfile = async (url: URL): Promise<ScrapedStudent> => {
+  const hashParam = url.searchParams.get('h');
+  const targetUrl = hashParam
+    ? `https://servicios.dae.ipn.mx/vcred/?h=${hashParam}`
+    : url.toString();
+
+  const HEADERS: Record<string, string> = {
+    'User-Agent':
+      'Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0 Mobile Safari/537.36',
+    Accept:
+      'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
+    Referer: 'https://servicios.dae.ipn.mx/',
+    Origin: 'https://servicios.dae.ipn.mx',
+    Connection: 'keep-alive',
+  };
+
+  try {
+    console.log('Intentando scraping directo:', targetUrl);
+
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: HEADERS,
+    });
+
+    console.log('HTTP status:', response.status);
+
+    if (!response.ok && response.status !== 0) {
+      throw new Error(`Error HTTP ${response.status}`);
+    }
+
+    const html = await response.text();
+    console.log('HTML recibido:', html.length, 'bytes');
+
+    if (!html || html.length < 100) {
+      throw new Error('Respuesta vacía o bloqueada');
+    }
+
+    return parseStudentHtml(html);
+  } catch (error: any) {
+    console.log('Scraping directo falló:', error.message || error);
+    console.log('Intentando método alternativo...');
+
+    try {
+      const html = await fetchWithXMLHttpRequest(targetUrl);
+      console.log('XHR length:', html.length);
+      return parseStudentHtml(html);
+    } catch (err2: any) {
+      throw new Error(`Ambos métodos fallaron: ${err2.message || err2}`);
+    }
+  }
+};
+
+const splitNombre = (nombreCompleto: string) => {
+  const partes = nombreCompleto.split(/\s+/).filter(Boolean);
+  if (partes.length === 0) {
+    return { nombres: '', apellidos: '' };
+  }
+  if (partes.length === 1) {
+    return { nombres: partes[0], apellidos: '' };
+  }
+  if (partes.length === 2) {
+    return { nombres: partes[0], apellidos: partes[1] };
+  }
+  const apellidos = partes.slice(-2).join(' ');
+  const nombres = partes.slice(0, partes.length - 2).join(' ');
+  return { nombres, apellidos };
+};
+
+const computeHash = async (payload: string) => {
+  try {
+    return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, payload);
+  } catch (error) {
+    console.warn('No se pudo generar hash de verificación', error);
+    return '';
+  }
+};
 
 export default function EscanearScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -263,36 +449,145 @@ export default function EscanearScreen() {
     setScanning(false);
 
     try {
-      // Extraer boleta del QR (asumimos que el QR contiene la boleta)
-      const boleta = data.trim();
+      const rawContent = data.trim();
+      let scannedBoleta: string | null = null;
+      let scrapedProfile: ScrapedStudent | null = null;
+      let verificationHash = '';
+      let parsedUrl: URL | null = null;
 
-      // Validar formato de boleta (10 dígitos)
-      if (!/^[0-9]{10}$/.test(boleta)) {
+      try {
+        parsedUrl = new URL(rawContent);
+      } catch {
+        parsedUrl = null;
+      }
+
+      if (parsedUrl) {
+        if (!isAllowedUrl(parsedUrl)) {
+          Alert.alert('Error', 'URL no permitida. Usa una credencial institucional válida.');
+          setScanning(true);
+          setProcessing(false);
+          return;
+        }
+
+        await checkConnectivity();
+        scrapedProfile = await fetchStudentProfile(parsedUrl);
+        scannedBoleta = scrapedProfile.boleta;
+        verificationHash = await computeHash(
+          `${scrapedProfile.boleta}${scrapedProfile.nombreCompleto}${Date.now()}`
+        );
+      } else {
+        const boletaMatch = rawContent.match(/\d{10}/);
+        if (boletaMatch) {
+          scannedBoleta = boletaMatch[0];
+        }
+      }
+
+      if (!scannedBoleta || !/^\d{10}$/.test(scannedBoleta)) {
         Alert.alert('Error', 'Código QR inválido');
         setScanning(true);
         setProcessing(false);
         return;
       }
 
-      // Verificar que el estudiante existe
       const { data: estudiante, error: estudianteError } = await supabase
         .from('estudiantes')
         .select('*')
-        .eq('boleta', boleta)
+        .eq('boleta', scannedBoleta)
         .single();
 
       if (estudianteError || !estudiante) {
-        Alert.alert('Error', 'Estudiante no encontrado');
+        Alert.alert(
+          'Estudiante no encontrado',
+          `La boleta "${scannedBoleta}" no corresponde a ningún estudiante registrado en el sistema.`
+        );
         setScanning(true);
         setProcessing(false);
         return;
       }
 
-      // Verificar que esté inscrito en la materia
+      if (scrapedProfile && scrapedProfile.boleta !== scannedBoleta) {
+        Alert.alert(
+          'Datos inconsistentes',
+          'La credencial escaneada no coincide con la información encontrada.'
+        );
+        setScanning(true);
+        setProcessing(false);
+        return;
+      }
+
+      let updateSummary: string | null = null;
+
+      if (scrapedProfile) {
+        const updates: Record<string, any> = {};
+        const updatedFields: string[] = [];
+        const { nombres, apellidos } = splitNombre(scrapedProfile.nombreCompleto);
+
+        if ('nombre' in estudiante && nombres && estudiante.nombre !== nombres) {
+          updates.nombre = nombres;
+          updatedFields.push('nombre');
+        }
+
+        if ('apellido' in estudiante && apellidos && estudiante.apellido !== apellidos) {
+          updates.apellido = apellidos;
+          updatedFields.push('apellido');
+        }
+
+        if ('carrera' in estudiante && scrapedProfile.carrera) {
+          const carreraActual = (estudiante as Record<string, any>).carrera;
+          if (carreraActual !== scrapedProfile.carrera) {
+            updates.carrera = scrapedProfile.carrera;
+            updatedFields.push('carrera');
+          }
+        }
+
+        if ('escuela' in estudiante && scrapedProfile.escuela) {
+          const escuelaActual = (estudiante as Record<string, any>).escuela;
+          if (escuelaActual !== scrapedProfile.escuela) {
+            updates.escuela = scrapedProfile.escuela;
+            updatedFields.push('escuela');
+          }
+        }
+
+        if ('hash_verificacion' in estudiante && verificationHash) {
+          const hashActual = (estudiante as Record<string, any>).hash_verificacion;
+          if (hashActual !== verificationHash) {
+            updates.hash_verificacion = verificationHash;
+            updatedFields.push('hash_verificacion');
+          }
+        }
+
+        if ('original_url' in estudiante && parsedUrl) {
+          const urlActual = (estudiante as Record<string, any>).original_url;
+          const encryptedUrl = parsedUrl.toString();
+          if (urlActual !== encryptedUrl) {
+            updates.original_url = encryptedUrl;
+            updatedFields.push('original_url');
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          updates.updated_at = new Date().toISOString();
+          if (profesor?.id) {
+            updates.updated_by = profesor.id;
+          }
+
+          const { error: updateError } = await supabase
+            .from('estudiantes')
+            .update(updates)
+            .eq('boleta', scannedBoleta);
+
+          if (updateError) throw updateError;
+          updateSummary =
+            updatedFields.length > 0
+              ? `Datos sincronizados (${updatedFields.join(', ')})`
+              : 'Datos sincronizados';
+        }
+      }
+
       const { data: inscripcion, error: inscripcionError } = await supabase
         .from('inscripciones')
         .select('*')
-        .eq('boleta', boleta)
+        .eq('boleta', scannedBoleta)
         .eq('materia_id', sesionActiva.materia_id)
         .eq('estado_inscripcion', 'activa')
         .single();
@@ -300,32 +595,30 @@ export default function EscanearScreen() {
       if (inscripcionError || !inscripcion) {
         Alert.alert(
           'Error',
-          `${estudiante.nombre} ${estudiante.apellido} no está inscrito en esta materia`
+          `${estudiante.nombre} ${estudiante.apellido} no está inscrito en esta materia.`
         );
         setScanning(true);
         setProcessing(false);
         return;
       }
 
-      // Verificar si ya se registró asistencia hoy
       const { data: asistenciaExistente } = await supabase
         .from('asistencias')
         .select('*')
-        .eq('boleta', boleta)
+        .eq('boleta', scannedBoleta)
         .eq('sesion_id', sesionActiva.id)
         .single();
 
       if (asistenciaExistente) {
         Alert.alert(
           'Aviso',
-          `${estudiante.nombre} ${estudiante.apellido} ya tiene asistencia registrada`
+          `${estudiante.nombre} ${estudiante.apellido} ya tiene una asistencia registrada para esta sesión.`
         );
         setScanning(true);
         setProcessing(false);
         return;
       }
 
-      // Calcular tardanza (si han pasado más de 10 minutos)
       const horaReferencia = sesionActiva.hora_inicio || format(new Date(), 'HH:mm:ss');
       const horaInicio = new Date(`2000-01-01T${horaReferencia}`);
       const horaActual = new Date();
@@ -341,11 +634,10 @@ export default function EscanearScreen() {
         minutosTardanza = diferenciaMinutos;
       }
 
-      // Registrar asistencia
       const { error: asistenciaError } = await supabase
         .from('asistencias')
         .insert({
-          boleta,
+          boleta: scannedBoleta,
           materia_id: sesionActiva.materia_id,
           sesion_id: sesionActiva.id,
           fecha_sesion: new Date().toISOString(),
@@ -358,13 +650,15 @@ export default function EscanearScreen() {
 
       const mensaje =
         estado === 'presente'
-          ? `¡Asistencia registrada!\n${estudiante.nombre} ${estudiante.apellido}`
+          ? `Asistencia registrada!\n${estudiante.nombre} ${estudiante.apellido}`
           : `Tardanza registrada\n${estudiante.nombre} ${estudiante.apellido}\n${minutosTardanza} minutos tarde`;
 
-      Alert.alert('Éxito', mensaje);
+      const mensajeFinal = updateSummary ? `${mensaje}\n\n${updateSummary}` : mensaje;
+
+      Alert.alert('Éxito', mensajeFinal);
     } catch (error: any) {
       console.error(error);
-      Alert.alert('Error', 'No se pudo registrar la asistencia');
+      Alert.alert('Error', error.message || 'No se pudo registrar la asistencia. Inténtalo de nuevo.');
     } finally {
       setTimeout(() => {
         setScanning(true);
@@ -398,7 +692,7 @@ export default function EscanearScreen() {
           loadingSesion ? (
             <View style={styles.sessionLoading}>
               <ActivityIndicator size="small" color="#2563eb" />
-              <Text style={styles.sessionLoadingText}>Preparando sesion...</Text>
+              <Text style={styles.sessionLoadingText}>Preparando sesión...</Text>
             </View>
           ) : sesionActiva ? (
             <>
@@ -413,7 +707,7 @@ export default function EscanearScreen() {
             </>
           ) : (
             <Text style={styles.sessionHelper}>
-              Selecciona una materia para preparar la sesion de asistencia.
+              Selecciona una materia para preparar la sesión de asistencia.
             </Text>
           )
         )}
@@ -449,7 +743,7 @@ export default function EscanearScreen() {
         </Text>
         <Text style={styles.instructionsText}>
           {canScan
-            ? 'Coloca el codigo QR dentro del marco'
+            ? 'Coloca el código QR dentro del marco'
             : 'Elige una materia para iniciar el registro de asistencia'}
         </Text>
       </View>
