@@ -5,12 +5,38 @@ import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 
-// A simple component for bar chart
-const BarChart = ({ data }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 1); // Avoid division by zero
+
+interface ChartData {
+    label: string;
+    value: number;
+    color: string;
+}
+
+interface Materia {
+    nombre: string;
+}
+
+interface Asistencia {
+    estado: string;
+}
+
+interface Sesion {
+    id: string;
+    fecha: string;
+    tema: string;
+    materia: Materia;
+    materia_id: string;
+}
+
+type BarChartProps = {
+    data: ChartData[];
+}
+
+const BarChart = ({ data }: BarChartProps) => {
+    const maxValue = Math.max(...data.map((d: ChartData) => d.value), 1); // Avoid division by zero
     return (
         <View style={styles.chartContainer}>
-            {data.map((item, index) => (
+            {data.map((item: ChartData, index: number) => (
                 <View key={index} style={styles.barWrapper}>
                     <View style={[styles.bar, { height: `${(item.value / maxValue) * 100}%`, backgroundColor: item.color }]} />
                     <Text style={styles.barValue}>{item.value}</Text>
@@ -26,7 +52,7 @@ export default function ReportDetailScreen() {
     const { sesionId } = useLocalSearchParams();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
-    const [session, setSession] = useState(null);
+    const [session, setSession] = useState<Sesion | null>(null);
     const [stats, setStats] = useState({ presentes: 0, tardanzas: 0, faltas: 0 });
 
     useEffect(() => {
@@ -54,8 +80,8 @@ export default function ReportDetailScreen() {
 
             if (asistError) throw asistError;
 
-            const presentes = asistencias?.filter((a) => a.estado === 'presente').length || 0;
-            const tardanzas = asistencias?.filter((a) => a.estado === 'tardanza').length || 0;
+            const presentes = asistencias?.filter((a: Asistencia) => a.estado === 'presente').length || 0;
+            const tardanzas = asistencias?.filter((a: Asistencia) => a.estado === 'tardanza').length || 0;
             
             const { count: totalInscritos, error: countError } = await supabase
                 .from('inscripciones')
@@ -65,7 +91,7 @@ export default function ReportDetailScreen() {
 
             if (countError) throw countError;
 
-            const faltas = totalInscritos - (presentes + tardanzas);
+            const faltas = (totalInscritos ?? 0) - (presentes + tardanzas);
 
             setStats({ presentes, tardanzas, faltas: faltas > 0 ? faltas : 0 });
 
@@ -84,7 +110,7 @@ export default function ReportDetailScreen() {
         return <View style={styles.centerContainer}><Text>No se encontró la sesión.</Text></View>;
     }
     
-    const chartData = [
+    const chartData: ChartData[] = [
         { label: 'Presentes', value: stats.presentes, color: '#10b981' },
         { label: 'Tardanzas', value: stats.tardanzas, color: '#f59e0b' },
         { label: 'Faltas', value: stats.faltas, color: '#ef4444' },

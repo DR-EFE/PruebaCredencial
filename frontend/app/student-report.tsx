@@ -1,16 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
+interface Student {
+    boleta: string;
+    nombre: string;
+    apellido: string;
+    carrera: string;
+    escuela: string;
+    turno: string;
+    curp: string;
+    fotografia?: string | null;
+    activo: boolean;
+}
+
+interface InfoRowProps {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    value: string;
+}
+
+interface ChartData {
+    label: string;
+    value: number;
+    color: string;
+}
+
+interface BarChartProps {
+    data: ChartData[];
+}
+
+interface AttendanceStats {
+    presentes: number;
+    tardanzas: number;
+    faltas: number;
+    totalSesiones: number;
+}
+
+type Asistencia = {
+    estado: string;
+}
+
+const InfoRow = ({ icon, label, value }: InfoRowProps) => (
+    <View style={styles.infoRow}>
+        <Ionicons name={icon} size={20} color="#6b7280" style={styles.infoIcon} />
+        <Text style={styles.infoLabel}>{label}:</Text>
+        <Text style={styles.infoValue}>{value}</Text>
+    </View>
+);
+
 // A simple component for bar chart
-const BarChart = ({ data }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 1); // Avoid division by zero
+const BarChart = ({ data }: BarChartProps) => {
+    const maxValue = Math.max(...data.map((d: ChartData) => d.value), 1); // Avoid division by zero
     return (
         <View style={styles.chartContainer}>
-            {data.map((item, index) => (
+            {data.map((item: ChartData, index: number) => (
                 <View key={index} style={styles.barWrapper}>
                     <View style={[styles.bar, { height: `${(item.value / maxValue) * 100}%`, backgroundColor: item.color }]} />
                     <Text style={styles.barValue}>{item.value}</Text>
@@ -25,9 +72,9 @@ export default function StudentReportScreen() {
     const { materiaId, boleta } = useLocalSearchParams();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
-    const [student, setStudent] = useState(null);
-    const [materia, setMateria] = useState(null);
-    const [attendanceStats, setAttendanceStats] = useState(null);
+    const [student, setStudent] = useState<Student | null>(null);
+    const [materia, setMateria] = useState<{ nombre: string } | null>(null);
+    const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
 
     useEffect(() => {
         if (materiaId && boleta) {
@@ -56,8 +103,8 @@ export default function StudentReportScreen() {
             
             if (attendanceError) throw attendanceError;
 
-            const presentes = attendanceData.filter(a => a.estado === 'presente').length;
-            const tardanzas = attendanceData.filter(a => a.estado === 'tardanza').length;
+            const presentes = attendanceData.filter((a: Asistencia) => a.estado === 'presente').length;
+            const tardanzas = attendanceData.filter((a: Asistencia) => a.estado === 'tardanza').length;
             
             // To get 'faltas', we need total sessions for the materia
             const { count: totalSesiones, error: sesionError } = await supabase
@@ -68,9 +115,9 @@ export default function StudentReportScreen() {
 
             if (sesionError) throw sesionError;
 
-            const faltas = totalSesiones - (presentes + tardanzas);
+            const faltas = (totalSesiones ?? 0) - (presentes + tardanzas);
 
-            setAttendanceStats({ presentes, tardanzas, faltas: faltas > 0 ? faltas : 0, totalSesiones });
+            setAttendanceStats({ presentes, tardanzas, faltas: faltas > 0 ? faltas : 0, totalSesiones: totalSesiones ?? 0 });
 
         } catch (error) {
             console.error(error);
@@ -88,7 +135,7 @@ export default function StudentReportScreen() {
         return <View style={styles.centerContainer}><Text>No se pudo cargar la información.</Text></View>;
     }
 
-    const chartData = [
+    const chartData: ChartData[] = [
         { label: 'Presente', value: attendanceStats.presentes, color: '#10b981' },
         { label: 'Tardanza', value: attendanceStats.tardanzas, color: '#f59e0b' },
         { label: 'Falta', value: attendanceStats.faltas, color: '#ef4444' },
@@ -100,14 +147,29 @@ export default function StudentReportScreen() {
                  <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#111827" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>{`${student.nombre} ${student.apellido}`}</Text>
+                <View style={styles.headerContent}>
+                    {student.fotografia ? (
+                        <Image source={{ uri: student.fotografia }} style={styles.avatar} />
+                    ) : (
+                        <View style={styles.avatarPlaceholder}>
+                            <Ionicons name="person" size={24} color="#2563eb" />
+                        </View>
+                    )}
+                    <Text style={styles.headerTitle}>{`${student.nombre} ${student.apellido}`}</Text>
+                </View>
             </View>
             <View style={styles.content}>
-                <Text style={styles.boletaText}>Boleta: {student.boleta}</Text>
-                <Text style={styles.materiaText}>Materia: {materia.nombre}</Text>
+                <View style={styles.studentInfoCard}>
+                    <Text style={styles.cardTitle}>Información Académica</Text>
+                    <InfoRow icon="id-card-outline" label="Boleta" value={student.boleta} />
+                    <InfoRow icon="school-outline" label="Carrera" value={student.carrera} />
+                    <InfoRow icon="business-outline" label="Escuela" value={student.escuela} />
+                    <InfoRow icon="time-outline" label="Turno" value={student.turno} />
+                    <InfoRow icon="document-text-outline" label="CURP" value={student.curp} />
+                </View>
                 
                 <View style={styles.chartCard}>
-                    <Text style={styles.cardTitle}>Resumen de Asistencia ({attendanceStats.totalSesiones} sesiones)</Text>
+                    <Text style={styles.cardTitle}>Asistencia en: {materia.nombre} ({attendanceStats.totalSesiones} sesiones)</Text>
                     <BarChart data={chartData} />
                 </View>
             </View>
@@ -121,7 +183,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingTop: 50,
+        paddingTop: Platform.OS === 'ios' ? 50 : 40,
         paddingBottom: 16,
         paddingHorizontal: 16,
         backgroundColor: '#fff',
@@ -130,6 +192,21 @@ const styles = StyleSheet.create({
     },
     backButton: {
         marginRight: 16,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    avatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        marginRight: 12,
+    },
+    avatarPlaceholder: {
+        width: 40, height: 40, borderRadius: 20, marginRight: 12,
+        backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center'
     },
     headerTitle: {
         fontSize: 20,
@@ -140,21 +217,41 @@ const styles = StyleSheet.create({
     content: {
         padding: 20,
     },
-    boletaText: {
-        fontSize: 16,
-        color: '#6b7280',
-        marginBottom: 4,
-    },
-    materiaText: {
-        fontSize: 16,
-        color: '#6b7280',
-        marginBottom: 24,
-    },
     cardTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 16,
         color: '#111827',
+    },
+    studentInfoCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    infoIcon: {
+        marginRight: 12,
+    },
+    infoLabel: {
+        fontSize: 15,
+        color: '#374151',
+        fontWeight: '600',
+    },
+    infoValue: {
+        fontSize: 15,
+        color: '#6b7280',
+        marginLeft: 8,
+        flex: 1,
     },
     chartCard: {
         backgroundColor: '#fff',

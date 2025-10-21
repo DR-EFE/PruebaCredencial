@@ -19,6 +19,32 @@ interface Materia {
   nombre: string;
 }
 
+interface Asistencia {
+  estado: 'presente' | 'tardanza' | 'falta';
+}
+
+interface WeeklyReport {
+  id: string;
+  week: number;
+  year: number;
+  sesiones: Sesion[];
+  presentes: number;
+  tardanzas: number;
+  faltas: number;
+  total_asistencias: number;
+}
+
+interface MonthlyReport {
+  id: string;
+  month: number;
+  year: number;
+  sesiones: Sesion[];
+  presentes: number;
+  tardanzas: number;
+  faltas: number;
+  total_asistencias: number;
+}
+
 interface Sesion {
   id: number;
   fecha: string;
@@ -27,14 +53,15 @@ interface Sesion {
   presentes: number;
   tardanzas: number;
   faltas: number;
+  asistencias: Asistencia[];
 }
 
 export default function ReportesScreen() {
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [selectedMateria, setSelectedMateria] = useState<number | null>(null);
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
-  const [weeklyReports, setWeeklyReports] = useState([]);
-  const [monthlyReports, setMonthlyReports] = useState([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [reportType, setReportType] = useState('sesiones'); // sesiones, semanal, mensual
@@ -87,18 +114,18 @@ export default function ReportesScreen() {
 
       if (sesionesError) throw sesionesError;
 
-      const sesionesConStats = sesionesData.map(sesion => {
+      const sesionesConStats: Sesion[] = sesionesData.map(sesion => {
         const asistencias = sesion.asistencias;
-        const presentes = asistencias.filter(a => a.estado === 'presente').length;
-        const tardanzas = asistencias.filter(a => a.estado === 'tardanza').length;
-        const faltas = asistencias.filter(a => a.estado === 'falta').length;
+        const presentes = asistencias.filter((a: Asistencia) => a.estado === 'presente').length;
+        const tardanzas = asistencias.filter((a: Asistencia) => a.estado === 'tardanza').length;
+        const faltas = asistencias.filter((a: Asistencia) => a.estado === 'falta').length;
         return { ...sesion, presentes, tardanzas, faltas, total_asistencias: asistencias.length };
       });
 
       if (reportType === 'sesiones') {
         setSesiones(sesionesConStats);
       } else if (reportType === 'semanal') {
-        const grouped = sesionesConStats.reduce((acc, sesion) => {
+        const grouped = sesionesConStats.reduce((acc: { [key: string]: WeeklyReport }, sesion) => {
           const week = getWeek(new Date(sesion.fecha), { weekStartsOn: 1 });
           const year = getYear(new Date(sesion.fecha));
           const key = `${year}-W${week}`;
@@ -114,7 +141,7 @@ export default function ReportesScreen() {
         }, {});
         setWeeklyReports(Object.values(grouped));
       } else if (reportType === 'mensual') {
-        const grouped = sesionesConStats.reduce((acc, sesion) => {
+        const grouped = sesionesConStats.reduce((acc: { [key: string]: MonthlyReport }, sesion) => {
           const month = getMonth(new Date(sesion.fecha));
           const year = getYear(new Date(sesion.fecha));
           const key = `${year}-M${month}`;
@@ -137,7 +164,7 @@ export default function ReportesScreen() {
     }
   };
 
-  const renderWeeklyReport = ({ item }) => {
+  const renderWeeklyReport = ({ item }: { item: WeeklyReport }) => {
     const percentage = item.total_asistencias > 0 ? Math.round(((item.presentes + item.tardanzas) / item.total_asistencias) * 100) : 0;
     return (
       <TouchableOpacity onPress={() => { /* Navigate to weekly detail */ }}>
@@ -150,7 +177,7 @@ export default function ReportesScreen() {
     );
   };
 
-  const renderMonthlyReport = ({ item }) => {
+  const renderMonthlyReport = ({ item }: { item: MonthlyReport }) => {
     const percentage = item.total_asistencias > 0 ? Math.round(((item.presentes + item.tardanzas) / item.total_asistencias) * 100) : 0;
     const monthName = format(new Date(item.year, item.month), 'MMMM yyyy');
     return (

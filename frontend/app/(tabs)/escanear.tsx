@@ -82,28 +82,55 @@ const SCRAPER_HEADERS: Record<string, string> = {
   Origin: 'https://servicios.dae.ipn.mx',
 };
 
-const sanitizeText = (text: string) =>
-  text
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
+/**
+ * 🔧 Limpieza mejorada de texto HTML
+ * Corrige entidades HTML, acentos, caracteres especiales y ruidos del texto.
+ */
+const sanitizeText = (text: string) => {
+  return text
+    // Reemplaza entidades numéricas &#xxxx;
     .replace(/&#(\d+);/g, (_, code) => {
       const parsed = Number(code);
       return Number.isFinite(parsed) ? String.fromCharCode(parsed) : '';
     })
+    // Reemplaza entidades con nombre (á, é, í, ó, ú, ñ, etc.)
+    .replace(/&([A-Za-z]+);/g, (match, entity) => {
+      const map: Record<string, string> = {
+        nbsp: ' ',
+        amp: '&',
+        aacute: 'á',
+        eacute: 'é',
+        iacute: 'í',
+        oacute: 'ó',
+        uacute: 'ú',
+        Aacute: 'Á',
+        Eacute: 'É',
+        Iacute: 'Í',
+        Oacute: 'Ó',
+        Uacute: 'Ú',
+        ntilde: 'ñ',
+        Ntilde: 'Ñ',
+        lacute: 'l', // corrige &lacute;
+        quot: '"',
+        lt: '<',
+        gt: '>',
+      };
+      return map[entity.toLowerCase()] || '';
+    })
+    // Reemplaza saltos de línea, tabs, espacios múltiples
     .replace(/[\r\n\t]+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
     .trim();
+};
 
 /**
  * 🔍 Extrae información del HTML de credenciales IPN (vcred)
+ * Limpia carrera, boleta y escuela.
  */
 const parseStudentHtml = (html: string): ScrapedStudent => {
   console.log('--- Iniciando parseo de HTML ---');
 
-  const extractField = (
-    patterns: Array<RegExp>,
-    valueIndex: number = 1
-  ): string | undefined => {
+  const extractField = (patterns: Array<RegExp>, valueIndex: number = 1): string | undefined => {
     for (const pattern of patterns) {
       const match = html.match(pattern);
       if (match && match[valueIndex]) {
@@ -113,44 +140,52 @@ const parseStudentHtml = (html: string): ScrapedStudent => {
     return undefined;
   };
 
-  const boleta = extractField([
-    /<div[^>]*class=["'][^"']*\bboleta\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+  const rawBoleta = extractField([
     /Boleta:\s*([0-9]{8,10})/i,
+    /Boleta&lt;\/strong&gt;:\s*([0-9]{8,10})/i,
   ]);
 
+  // CURP puede incluir TEMP y la boleta duplicada → se limpia
+  const curpMatch = html.match(/CURP:\s*([A-Z0-9]{10,20})/i);
+  let curp = curpMatch ? sanitizeText(curpMatch[1]) : undefined;
+  if (curp?.includes('TEMP')) curp = undefined;
+
   const nombreCompleto = extractField([
-    /<div[^>]*class=["'][^"']*\bnombre\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
-    /Nombre:\s*([^<\n]+)/i,
+    /Nombre:\s*([^&lt;\n]+)/i,
   ]);
 
   const carrera = extractField([
-    /<div[^>]*class=["'][^"']*\bcarrera\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
-    /Programa\s+acad[eé]mico:\s*([^<\n]+)/i,
+    /Carrera:\s*([^&lt;\n]+)/i,
+    /Programa\s+acad[eé]mico:\s*([^&lt;\n]+)/i,
   ]);
 
-  const escuela = extractField(
-    [
-      /<div[^>]*class=["'][^"']*\bescuela\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
-      /Unidad\s+Profesional[^<]+/i,
-      /(UPIICSA)/i,
-    ],
-    1
-  );
+  // El texto puede venir dividido: "UNIDAD PROFESIONAL INTERDISCIPLINARIA DE INGENIERÍA Y" + "ESCUELA: CIENCIAS..."
+  // Unimos ambas partes si es necesario.
+  let escuela = extractField([
+    /Escuela:\s*([^&lt;\n]+)/i,
+    /Unidad\s+Profesional[^&lt;]+/i,
+    /(UPIICSA)/i,
+  ]);
 
-  console.log('Resultados del parseo:', {
-      boleta,
-      nombre: nombreCompleto,
-      carrera,
-      escuela,
+  if (escuela) {
+    escuela = escuela.replace(/^(Y\s+)?Escuela:/i, '').trim();
+    if (!escuela.includes('UPIICSA')) escuela += ' (UPIICSA)';
+  }
+
+  console.log('Resultados del parseo limpio:', {
+    boleta: rawBoleta,
+    nombre: nombreCompleto,
+    carrera,
+    escuela,
+    curp,
   });
 
-  if (!boleta || !nombreCompleto) {
-    console.warn('??O HTML no contiene campos esperados');
+  if (!rawBoleta || !nombreCompleto) {
     throw new Error('No se pudo extraer boleta o nombre del HTML de credencial');
   }
 
   return {
-    boleta,
+    boleta: rawBoleta,
     nombreCompleto,
     carrera,
     escuela: escuela ?? 'UPIICSA',
@@ -848,11 +883,30 @@ export default function EscanearScreen() {
 
   const activeStatus = feedback ?? defaultStatus;
 
-  const statusVariants: Record<FeedbackType, { style: ViewStyle; icon: string; iconColor: string }> = {
+  const statusVariants: Record<
+    FeedbackType,
+    {
+      style: ViewStyle;
+      icon: React.ComponentProps<typeof Ionicons>['name'];
+      iconColor: string;
+    }
+  > = {
     info: { style: styles.statusInfo, icon: 'scan', iconColor: '#2563eb' },
-    success: { style: styles.statusSuccess, icon: 'checkmark-circle', iconColor: '#047857' },
-    warning: { style: styles.statusWarning, icon: 'alert-circle', iconColor: '#b45309' },
-    error: { style: styles.statusError, icon: 'close-circle', iconColor: '#b91c1c' },
+    success: {
+      style: styles.statusSuccess,
+      icon: 'checkmark-circle',
+      iconColor: '#047857',
+    },
+    warning: {
+      style: styles.statusWarning,
+      icon: 'alert-circle',
+      iconColor: '#b45309',
+    },
+    error: {
+      style: styles.statusError,
+      icon: 'close-circle',
+      iconColor: '#b91c1c',
+    },
   };
 
   const statusVariant = statusVariants[activeStatus.type];
