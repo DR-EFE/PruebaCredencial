@@ -10,6 +10,7 @@ import {
   Modal,
   ViewStyle,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase } from '@/core/api/supabaseClient';
 import { useAuthStore } from '@/core/auth/useAuthStore';
@@ -111,7 +112,7 @@ const sanitizeText = (text: string) => {
         lacute: 'l', // corrige &lacute;
         quot: '"',
         lt: '<',
-        gt: '>',
+        gt: '>'
       };
       return map[entity.toLowerCase()] || '';
     })
@@ -141,6 +142,7 @@ const parseStudentHtml = (html: string): ScrapedStudent => {
   const rawBoleta = extractField([
     /Boleta:\s*([0-9]{8,10})/i,
     /Boleta&lt;\/strong&gt;:\s*([0-9]{8,10})/i,
+    /<div class='boleta'[^>]*>([0-9]{8,10})<\/div>/i,
   ]);
 
   // CURP puede incluir TEMP y la boleta duplicada → se limpia
@@ -150,11 +152,13 @@ const parseStudentHtml = (html: string): ScrapedStudent => {
 
   const nombreCompleto = extractField([
     /Nombre:\s*([^&lt;\n]+)/i,
+    /<div class='nombre'[^>]*>([^<]+)<\/div>/i,
   ]);
 
   const carrera = extractField([
     /Carrera:\s*([^&lt;\n]+)/i,
     /Programa\s+acad[eé]mico:\s*([^&lt;\n]+)/i,
+    /<div class='carrera'[^>]*>([^<]+)<\/div>/i,
   ]);
 
   // El texto puede venir dividido: "UNIDAD PROFESIONAL INTERDISCIPLINARIA DE INGENIERÍA Y" + "ESCUELA: CIENCIAS..."
@@ -163,6 +167,7 @@ const parseStudentHtml = (html: string): ScrapedStudent => {
     /Escuela:\s*([^&lt;\n]+)/i,
     /Unidad\s+Profesional[^&lt;]+/i,
     /(UPIICSA)/i,
+    /<div class='escuela'[^>]*>([^<]+)<\/div>/i,
   ]);
 
   if (escuela) {
@@ -249,9 +254,7 @@ const fetchStudentProfile = async (url: URL): Promise<ScrapedStudent> => {
   } catch (error: any) {
     console.error('❌ Scraping falló:', error.message || error);
     throw new Error(
-      `No se pudo obtener la información del estudiante. Detalle: ${
-        error.message || 'Error desconocido'
-      }`
+      `No se pudo obtener la información del estudiante. Detalle: ${error.message || 'Error desconocido'}`
     );
   }
 };
@@ -423,10 +426,13 @@ export default function EscanearScreen() {
     }
   }, [profesor, sesionActiva]);
 
-  useEffect(() => {
-    if (!profesor) return;
-    loadMaterias();
-  }, [profesor, loadMaterias]);
+  useFocusEffect(
+    useCallback(() => {
+      if (profesor) {
+        loadMaterias();
+      }
+    }, [profesor, loadMaterias])
+  );
 
   useEffect(() => {
     if (!selectedMateria) {
@@ -554,9 +560,9 @@ export default function EscanearScreen() {
     setFeedback({
       type: 'info',
       title: 'Procesando credencial...',
-      message: 'Validando c�digo QR y sincronizando datos del estudiante.',
+      message: 'Validando código QR y sincronizando datos del estudiante.',
     });
-    console.log('--- Iniciando escaneo de c�digo de barras ---');
+    console.log('--- Iniciando escaneo de código de barras ---');
     console.log('Dato crudo:', data);
 
     try {
@@ -570,18 +576,18 @@ export default function EscanearScreen() {
         parsedUrl = new URL(rawContent);
         console.log('URL parseada:', parsedUrl.toString());
       } catch {
-        console.log('No es una URL v�lida, se intentar� como texto plano.');
+        console.log('No es una URL válida, se intentará como texto plano.');
         parsedUrl = null;
       }
 
       if (parsedUrl) {
         const allowed = isAllowedUrl(parsedUrl);
-        console.log('�URL permitida?', allowed);
+        console.log('¿URL permitida?', allowed);
         if (!allowed) {
           setFeedback({
             type: 'error',
             title: 'URL no permitida',
-            message: 'Usa una credencial institucional v�lida emitida por el IPN.',
+            message: 'Usa una credencial institucional válida emitida por el IPN.',
           });
           resumeScanning(900);
           return;
@@ -599,7 +605,7 @@ export default function EscanearScreen() {
         );
       } else {
         const boletaMatch = rawContent.match(/\d{10}/);
-        console.log('Resultado de b�squeda de boleta en texto plano:', boletaMatch);
+        console.log('Resultado de búsqueda de boleta en texto plano:', boletaMatch);
         if (boletaMatch) {
           scannedBoleta = boletaMatch[0];
         }
@@ -609,8 +615,8 @@ export default function EscanearScreen() {
       if (!scannedBoleta || !/^\d{10}$/.test(scannedBoleta)) {
         setFeedback({
           type: 'error',
-          title: 'C�digo inv�lido',
-          message: 'No se detect� una boleta v�lida dentro del c�digo QR.',
+          title: 'Código inválido',
+          message: 'No se detectó una boleta válida dentro del código QR.',
         });
         resumeScanning(900);
         return;
@@ -619,7 +625,7 @@ export default function EscanearScreen() {
       if (!sesionActiva) {
         setFeedback({
           type: 'warning',
-          title: 'Sesi�n no disponible',
+          title: 'Sesión no disponible',
           message: 'Selecciona una materia para continuar con el pase de lista.',
         });
         resumeScanning(900);
@@ -638,7 +644,7 @@ export default function EscanearScreen() {
         setFeedback({
           type: 'error',
           title: 'Estudiante no encontrado',
-          message: `La boleta ${scannedBoleta} no est� registrada en la base de datos.`,
+          message: `La boleta ${scannedBoleta} no está registrada en la base de datos.`,
         });
         resumeScanning(1100);
         return;
@@ -730,14 +736,14 @@ export default function EscanearScreen() {
             updatedFields.length > 0
               ? `Datos sincronizados (${updatedFields.join(', ')})`
               : 'Datos sincronizados';
-          console.log('Resumen de actualizaci�n:', updateSummary);
+          console.log('Resumen de actualización:', updateSummary);
         } else {
           console.log('No hay datos nuevos que sincronizar para el estudiante.');
         }
       }
 
-      console.log(`Verificando inscripci�n a materia ${sesionActiva.materia_id} para boleta ${scannedBoleta}`);
-      const { data: inscripcion, error: inscripcionError } = await supabase
+      console.log(`Verificando inscripción a materia ${sesionActiva.materia_id} para boleta ${scannedBoleta}`);
+      let { data: inscripcion, error: inscripcionError } = await supabase
         .from('inscripciones')
         .select('*')
         .eq('boleta', scannedBoleta)
@@ -745,19 +751,51 @@ export default function EscanearScreen() {
         .eq('estado_inscripcion', 'activa')
         .single();
 
-      if (inscripcionError || !inscripcion) {
-        console.log('Error de Supabase al buscar inscripci�n:', inscripcionError);
+      if (inscripcionError && inscripcionError.code === 'PGRST116') { // Not enrolled
+        console.log(`Estudiante no inscrito. Inscribiendo a ${scannedBoleta} en materia ${sesionActiva.materia_id}`);
+        
+        const { data: nuevaInscripcion, error: insertError } = await supabase
+          .from('inscripciones')
+          .insert({
+            boleta: scannedBoleta,
+            materia_id: sesionActiva.materia_id,
+            created_by: profesor?.id,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error al inscribir estudiante:', insertError);
+          setFeedback({
+            type: 'error',
+            title: 'Error de inscripción',
+            message: `No se pudo inscribir a ${estudiante.nombre} en la materia.`, 
+          });
+          resumeScanning(1500);
+          return;
+        }
+        
+        inscripcion = nuevaInscripcion; // now we have the enrollment
         setFeedback({
-          type: 'warning',
-          title: 'Inscripci�n pendiente',
-          message: `${estudiante.nombre} ${estudiante.apellido} no est� inscrito en esta materia.`,
+            type: 'success',
+            title: 'Inscripción Exitosa',
+            message: `${estudiante.nombre} ${estudiante.apellido} ha sido inscrito en esta materia.`, 
+        });
+
+      } else if (inscripcionError) { // Some other error
+        console.log('Error de Supabase al buscar inscripción:', inscripcionError);
+        setFeedback({
+          type: 'error',
+          title: 'Error de Inscripción',
+          message: 'Ocurrió un error al verificar la inscripción.',
         });
         resumeScanning(1100);
         return;
       }
-      console.log('Inscripci�n encontrada:', inscripcion);
 
-      console.log(`Verificando asistencia existente para sesi�n ${sesionActiva.id}`);
+      console.log('Inscripción encontrada:', inscripcion);
+
+      console.log(`Verificando asistencia existente para sesión ${sesionActiva.id}`);
       const { data: asistenciaExistente } = await supabase
         .from('asistencias')
         .select('*')
@@ -770,7 +808,7 @@ export default function EscanearScreen() {
         setFeedback({
           type: 'warning',
           title: 'Registro duplicado',
-          message: `${estudiante.nombre} ${estudiante.apellido} ya tiene asistencia registrada en esta sesi�n.`,
+          message: `${estudiante.nombre} ${estudiante.apellido} ya tiene asistencia registrada en esta sesión.`, 
         });
         resumeScanning(1100);
         return;
@@ -778,10 +816,11 @@ export default function EscanearScreen() {
 
       console.log('Calculando estado de asistencia (presente/tardanza)...');
       const horaReferencia = sesionActiva.hora_inicio || format(new Date(), 'HH:mm:ss');
-      const horaInicio = new Date(`2000-01-01T${horaReferencia}`);
-      const horaActual = new Date();
+      const todayForTimeCalc = new Date();
+      const [h, m, s] = horaReferencia.split(':').map(Number);
+      const horaInicio = new Date(todayForTimeCalc.getFullYear(), todayForTimeCalc.getMonth(), todayForTimeCalc.getDate(), h, m, s);
       const diferenciaMinutos = Math.floor(
-        (horaActual.getTime() - horaInicio.getTime()) / (1000 * 60)
+        (todayForTimeCalc.getTime() - horaInicio.getTime()) / (1000 * 60)
       );
 
       const duracionClase = sesionActiva.duracion_minutos ?? 90;
@@ -789,7 +828,7 @@ export default function EscanearScreen() {
         setFeedback({
           type: 'error',
           title: 'Clase no iniciada o terminada',
-          message: `No se puede registrar, la clase de ${duracionClase} min ya finalizó o no ha empezado.`,
+          message: `No se puede registrar, la clase de ${duracionClase} min ya finalizó o no ha empezado.`, 
         });
         resumeScanning(1500);
         return;
@@ -820,7 +859,7 @@ export default function EscanearScreen() {
         console.error('Error al registrar asistencia:', asistenciaError);
         throw asistenciaError;
       }
-      console.log('Asistencia registrada con �xito.');
+      console.log('Asistencia registrada con éxito.');
 
       const nombreCompletoDb =
         `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.trim() ||
@@ -842,7 +881,7 @@ export default function EscanearScreen() {
       const baseMessage =
         estado === 'presente'
           ? `${nombreCompletoDb} registrado como presente.`
-          : `${nombreCompletoDb} lleg� con ${minutosTardanza} minutos de tardanza.`;
+          : `${nombreCompletoDb} llegó con ${minutosTardanza} minutos de tardanza.`;
 
       const detailMessage = updateSummary ? `${baseMessage}\n${updateSummary}` : baseMessage;
 
@@ -858,7 +897,7 @@ export default function EscanearScreen() {
       setFeedback({
         type: 'error',
         title: 'Error al registrar asistencia',
-        message: error?.message || 'No se pudo registrar la asistencia. Int�ntalo de nuevo.',
+        message: error?.message || 'No se pudo registrar la asistencia. Inténtalo de nuevo.',
       });
       resumeScanning(1500);
     }
@@ -867,13 +906,13 @@ export default function EscanearScreen() {
     ? (processing
         ? {
             type: 'info',
-            title: 'Procesando...',
+            title: 'Procesando...', 
             message: 'Validando credencial del estudiante.',
           }
         : {
             type: 'info',
             title: 'Listo para escanear',
-            message: 'Coloca el c�digo QR dentro del marco.',
+            message: 'Coloca el código QR dentro del marco.',
           })
     : {
         type: 'warning',
