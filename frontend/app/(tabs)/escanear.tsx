@@ -103,44 +103,6 @@ const checkConnectivity = async () => {
   }
 };
 
-const fetchWithXMLHttpRequest = (url: string): Promise<string> =>
-  new Promise((resolve, reject) => {
-    try {
-      const xhr = new XMLHttpRequest();
-      xhr.timeout = 15000;
-      xhr.open('GET', url, true);
-
-      try {
-        xhr.setRequestHeader(
-          'User-Agent',
-          'Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36'
-        );
-      } catch {
-        // Algunos entornos no permiten modificar el User-Agent explícitamente
-      }
-
-      xhr.onload = function onLoad() {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(xhr.responseText);
-        } else {
-          reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
-        }
-      };
-
-      xhr.onerror = function onError() {
-        reject(new Error('Error de red'));
-      };
-
-      xhr.ontimeout = function onTimeout() {
-        reject(new Error('Timeout'));
-      };
-
-      xhr.send();
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error(String(error)));
-    }
-  });
-
 const fetchStudentProfile = async (url: URL): Promise<ScrapedStudent> => {
   const hashParam = url.searchParams.get('h');
   const targetUrl = hashParam
@@ -181,16 +143,8 @@ const fetchStudentProfile = async (url: URL): Promise<ScrapedStudent> => {
 
     return parseStudentHtml(html);
   } catch (error: any) {
-    console.log('Scraping directo falló:', error.message || error);
-    console.log('Intentando método alternativo...');
-
-    try {
-      const html = await fetchWithXMLHttpRequest(targetUrl);
-      console.log('XHR length:', html.length);
-      return parseStudentHtml(html);
-    } catch (err2: any) {
-      throw new Error(`Ambos métodos fallaron: ${err2.message || err2}`);
-    }
+    console.error('Scraping falló:', error.message || error);
+    throw new Error(`No se pudo obtener la información del estudiante. Causa: ${error.message || 'Error desconocido'}`);
   }
 };
 
