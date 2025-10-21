@@ -75,6 +75,24 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="materiaDetalle"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="addAlumnos"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

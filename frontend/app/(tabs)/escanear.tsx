@@ -42,14 +42,24 @@ interface ScrapedStudent {
   escuela?: string;
 }
 
+// --- 🔧 CONFIGURACIÓN Y SCRAPING CORREGIDOS PARA IPN/UPIICSA ---
+
 const SCRAPER_ALLOWED_DOMAINS = [
   'servicios.dae.ipn.mx',
+  'dae.ipn.mx',
   'upiicsa.ipn.mx',
   'ipn.mx',
 ];
 
-
-
+const SCRAPER_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'es-MX,es;q=0.8,en;q=0.6',
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
+  Referer: 'https://servicios.dae.ipn.mx/',
+  Origin: 'https://servicios.dae.ipn.mx',
+};
 
 const sanitizeText = (text: string) =>
   text
@@ -63,88 +73,132 @@ const sanitizeText = (text: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+/**
+ * 🔍 Extrae información del HTML de credenciales IPN (vcred)
+ */
 const parseStudentHtml = (html: string): ScrapedStudent => {
-  const boletaMatch = html.match(/Boleta:\s*([0-9]{8,10})/i);
-  const nombreMatch = html.match(/Nombre:\s*([^<\n]+)/i);
-  const carreraMatch = html.match(/Programa\s+acad[eé]mico:\s*([^<\n]+)/i);
-  const escuelaMatch =
-    html.match(/Unidad\s+Profesional[^<]+/i) ||
-    html.match(/UPIICSA/i);
+  console.log('--- Iniciando parseo de HTML ---');
 
-  if (!boletaMatch || !nombreMatch) {
-    throw new Error(
-      'Datos estudiantiles incompletos o inválidos (no se encontró boleta o nombre)'
-    );
+  const extractField = (
+    patterns: Array<RegExp>,
+    valueIndex: number = 1
+  ): string | undefined => {
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match && match[valueIndex]) {
+        return sanitizeText(match[valueIndex]);
+      }
+    }
+    return undefined;
+  };
+
+  const boleta = extractField([
+    /<div[^>]*class=["'][^"']*\bboleta\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    /Boleta:\s*([0-9]{8,10})/i,
+  ]);
+
+  const nombreCompleto = extractField([
+    /<div[^>]*class=["'][^"']*\bnombre\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    /Nombre:\s*([^<\n]+)/i,
+  ]);
+
+  const carrera = extractField([
+    /<div[^>]*class=["'][^"']*\bcarrera\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    /Programa\s+acad[eé]mico:\s*([^<\n]+)/i,
+  ]);
+
+  const escuela = extractField(
+    [
+      /<div[^>]*class=["'][^"']*\bescuela\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /Unidad\s+Profesional[^<]+/i,
+      /(UPIICSA)/i,
+    ],
+    1
+  );
+
+  console.log('Resultados del parseo:', {
+      boleta,
+      nombre: nombreCompleto,
+      carrera,
+      escuela,
+  });
+
+  if (!boleta || !nombreCompleto) {
+    console.warn('??O HTML no contiene campos esperados');
+    throw new Error('No se pudo extraer boleta o nombre del HTML de credencial');
   }
 
   return {
-    boleta: sanitizeText(boletaMatch[1]),
-    nombreCompleto: sanitizeText(nombreMatch[1]),
-    carrera: carreraMatch ? sanitizeText(carreraMatch[1]) : undefined,
-    escuela: escuelaMatch ? sanitizeText(escuelaMatch[0]) : 'UPIICSA',
+    boleta,
+    nombreCompleto,
+    carrera,
+    escuela: escuela ?? 'UPIICSA',
   };
 };
-
 const isAllowedUrl = (url: URL) =>
   url.protocol === 'https:' &&
-  SCRAPER_ALLOWED_DOMAINS.some((host) => url.hostname.toLowerCase().endsWith(host));
+  SCRAPER_ALLOWED_DOMAINS.some((host) =>
+    url.hostname.toLowerCase().endsWith(host)
+  );
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
+/**
+ * 🌐 Verifica conectividad antes del fetch
+ */
 const checkConnectivity = async () => {
   const networkState = await Network.getNetworkStateAsync();
   if (!networkState.isConnected) {
     throw new Error('No hay conexión a internet');
   }
-
   const ipAddress = await Network.getIpAddressAsync();
   if (!ipAddress) {
-    throw new Error('La red no está reachable');
+    throw new Error('No se detectó IP local (red no reachable)');
   }
 };
 
+/**
+ * 📄 Obtiene y parsea perfil del estudiante desde vcred IPN
+ */
 const fetchStudentProfile = async (url: URL): Promise<ScrapedStudent> => {
+  await checkConnectivity();
+
   const hashParam = url.searchParams.get('h');
   const targetUrl = hashParam
     ? `https://servicios.dae.ipn.mx/vcred/?h=${hashParam}`
     : url.toString();
 
-  const HEADERS: Record<string, string> = {
-    'User-Agent':
-      'Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0 Mobile Safari/537.36',
-    Accept:
-      'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
-    Referer: 'https://servicios.dae.ipn.mx/',
-    Origin: 'https://servicios.dae.ipn.mx',
-    Connection: 'keep-alive',
-  };
-
   try {
-    console.log('Intentando scraping directo:', targetUrl);
+    console.log('🌐 Scraping:', targetUrl);
 
     const response = await fetch(targetUrl, {
       method: 'GET',
-      headers: HEADERS,
+      headers: SCRAPER_HEADERS,
     });
 
     console.log('HTTP status:', response.status);
 
-    if (!response.ok && response.status !== 0) {
-      throw new Error(`Error HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
 
     const html = await response.text();
-    console.log('HTML recibido:', html.length, 'bytes');
-
-    if (!html || html.length < 100) {
-      throw new Error('Respuesta vacía o bloqueada');
+    if (!html || html.length < 200) {
+      console.log('HTML completo recibido (es corto):', html);
+      throw new Error('Contenido insuficiente o bloqueado');
     }
 
-    return parseStudentHtml(html);
+    try {
+        const studentData = parseStudentHtml(html);
+        console.log('✅ Estudiante extraído del HTML:', studentData);
+        return studentData;
+    } catch(parseError: any) {
+        console.error('Error al parsear HTML. HTML completo:', html);
+        throw parseError;
+    }
   } catch (error: any) {
-    console.error('Scraping falló:', error.message || error);
-    throw new Error(`No se pudo obtener la información del estudiante. Causa: ${error.message || 'Error desconocido'}`);
+    console.error('❌ Scraping falló:', error.message || error);
+    throw new Error(
+      `No se pudo obtener la información del estudiante. Detalle: ${
+        error.message || 'Error desconocido'
+      }`
+    );
   }
 };
 
@@ -401,6 +455,8 @@ export default function EscanearScreen() {
 
     setProcessing(true);
     setScanning(false);
+    console.log('--- Iniciando escaneo de código de barras ---');
+    console.log('Dato crudo:', data);
 
     try {
       const rawContent = data.trim();
@@ -411,12 +467,16 @@ export default function EscanearScreen() {
 
       try {
         parsedUrl = new URL(rawContent);
+        console.log('URL parseada:', parsedUrl.toString());
       } catch {
+        console.log('No es una URL válida, se intentará como texto plano.');
         parsedUrl = null;
       }
 
       if (parsedUrl) {
-        if (!isAllowedUrl(parsedUrl)) {
+        const allowed = isAllowedUrl(parsedUrl);
+        console.log('¿URL permitida?', allowed);
+        if (!allowed) {
           Alert.alert('Error', 'URL no permitida. Usa una credencial institucional válida.');
           setScanning(true);
           setProcessing(false);
@@ -424,18 +484,24 @@ export default function EscanearScreen() {
         }
 
         await checkConnectivity();
+        console.log('Conectividad verificada.');
+
         scrapedProfile = await fetchStudentProfile(parsedUrl);
+        console.log('Perfil obtenido por scraping:', scrapedProfile);
+
         scannedBoleta = scrapedProfile.boleta;
         verificationHash = await computeHash(
           `${scrapedProfile.boleta}${scrapedProfile.nombreCompleto}${Date.now()}`
         );
       } else {
         const boletaMatch = rawContent.match(/\d{10}/);
+        console.log('Resultado de búsqueda de boleta en texto plano:', boletaMatch);
         if (boletaMatch) {
           scannedBoleta = boletaMatch[0];
         }
       }
 
+      console.log('Boleta final a procesar:', scannedBoleta);
       if (!scannedBoleta || !/^\d{10}$/.test(scannedBoleta)) {
         Alert.alert('Error', 'Código QR inválido');
         setScanning(true);
@@ -443,6 +509,7 @@ export default function EscanearScreen() {
         return;
       }
 
+      console.log(`Buscando estudiante con boleta: ${scannedBoleta}`);
       const { data: estudiante, error: estudianteError } = await supabase
         .from('estudiantes')
         .select('*')
@@ -450,6 +517,7 @@ export default function EscanearScreen() {
         .single();
 
       if (estudianteError || !estudiante) {
+        console.log('Error de Supabase al buscar estudiante:', estudianteError);
         Alert.alert(
           'Estudiante no encontrado',
           `La boleta "${scannedBoleta}" no corresponde a ningún estudiante registrado en el sistema.`
@@ -458,8 +526,14 @@ export default function EscanearScreen() {
         setProcessing(false);
         return;
       }
+      console.log('Estudiante encontrado en la BD:', estudiante);
+
 
       if (scrapedProfile && scrapedProfile.boleta !== scannedBoleta) {
+        console.warn('Inconsistencia de datos:', {
+            boletaScraping: scrapedProfile.boleta,
+            boletaQR: scannedBoleta,
+        });
         Alert.alert(
           'Datos inconsistentes',
           'La credencial escaneada no coincide con la información encontrada.'
@@ -472,6 +546,7 @@ export default function EscanearScreen() {
       let updateSummary: string | null = null;
 
       if (scrapedProfile) {
+        console.log('Sincronizando datos del estudiante desde el perfil scrapeado...');
         const updates: Record<string, any> = {};
         const updatedFields: string[] = [];
         const { nombres, apellidos } = splitNombre(scrapedProfile.nombreCompleto);
@@ -520,6 +595,7 @@ export default function EscanearScreen() {
         }
 
         if (Object.keys(updates).length > 0) {
+          console.log('Actualizaciones a aplicar:', updates);
           updates.updated_at = new Date().toISOString();
           if (profesor?.id) {
             updates.updated_by = profesor.id;
@@ -530,14 +606,21 @@ export default function EscanearScreen() {
             .update(updates)
             .eq('boleta', scannedBoleta);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Error al actualizar estudiante:', updateError);
+            throw updateError;
+          }
           updateSummary =
             updatedFields.length > 0
               ? `Datos sincronizados (${updatedFields.join(', ')})`
               : 'Datos sincronizados';
+          console.log('Resumen de actualización:', updateSummary);
+        } else {
+            console.log('No hay datos nuevos que sincronizar para el estudiante.');
         }
       }
 
+      console.log(`Verificando inscripción a materia ${sesionActiva.materia_id} para boleta ${scannedBoleta}`);
       const { data: inscripcion, error: inscripcionError } = await supabase
         .from('inscripciones')
         .select('*')
@@ -547,6 +630,7 @@ export default function EscanearScreen() {
         .single();
 
       if (inscripcionError || !inscripcion) {
+        console.log('Error de Supabase al buscar inscripción:', inscripcionError);
         Alert.alert(
           'Error',
           `${estudiante.nombre} ${estudiante.apellido} no está inscrito en esta materia.`
@@ -555,7 +639,9 @@ export default function EscanearScreen() {
         setProcessing(false);
         return;
       }
+      console.log('Inscripción encontrada:', inscripcion);
 
+      console.log(`Verificando asistencia existente para sesión ${sesionActiva.id}`);
       const { data: asistenciaExistente } = await supabase
         .from('asistencias')
         .select('*')
@@ -564,6 +650,7 @@ export default function EscanearScreen() {
         .single();
 
       if (asistenciaExistente) {
+        console.log('Asistencia ya registrada:', asistenciaExistente);
         Alert.alert(
           'Aviso',
           `${estudiante.nombre} ${estudiante.apellido} ya tiene una asistencia registrada para esta sesión.`
@@ -573,6 +660,7 @@ export default function EscanearScreen() {
         return;
       }
 
+      console.log('Calculando estado de asistencia (presente/tardanza)...');
       const horaReferencia = sesionActiva.hora_inicio || format(new Date(), 'HH:mm:ss');
       const horaInicio = new Date(`2000-01-01T${horaReferencia}`);
       const horaActual = new Date();
@@ -588,6 +676,7 @@ export default function EscanearScreen() {
         minutosTardanza = diferenciaMinutos;
       }
 
+      console.log(`Registrando asistencia con estado: ${estado}, minutos tarde: ${minutosTardanza}`);
       const { error: asistenciaError } = await supabase
         .from('asistencias')
         .insert({
@@ -600,7 +689,11 @@ export default function EscanearScreen() {
           created_by: profesor?.id,
         });
 
-      if (asistenciaError) throw asistenciaError;
+      if (asistenciaError) {
+        console.error('Error al registrar asistencia:', asistenciaError);
+        throw asistenciaError;
+      }
+      console.log('✅ Asistencia registrada con éxito.');
 
       const mensaje =
         estado === 'presente'
@@ -611,7 +704,7 @@ export default function EscanearScreen() {
 
       Alert.alert('Éxito', mensajeFinal);
     } catch (error: any) {
-      console.error(error);
+      console.error('🚨 ERROR GENERAL en handleBarCodeScanned:', error);
       Alert.alert('Error', error.message || 'No se pudo registrar la asistencia. Inténtalo de nuevo.');
     } finally {
       setTimeout(() => {
@@ -987,3 +1080,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
