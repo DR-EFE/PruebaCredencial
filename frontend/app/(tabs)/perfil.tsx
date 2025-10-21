@@ -86,13 +86,13 @@ export default function PerfilScreen() {
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.option}>
+        <TouchableOpacity style={styles.option} onPress={() => router.push('/(auth)/change-password')}>
           <View style={styles.optionIcon}>
-            <Ionicons name="shield-checkmark-outline" size={24} color="#6b7280" />
+            <Ionicons name="lock-closed-outline" size={24} color="#6b7280" />
           </View>
           <View style={styles.optionContent}>
-            <Text style={styles.optionTitle}>Privacidad y Seguridad</Text>
-            <Text style={styles.optionSubtitle}>Administra tu privacidad</Text>
+            <Text style={styles.optionTitle}>Cambiar Contraseña</Text>
+            <Text style={styles.optionSubtitle}>Actualiza tu contraseña de acceso</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
         </TouchableOpacity>

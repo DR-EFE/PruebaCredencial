@@ -153,7 +153,7 @@ export default function MateriaDetalleScreen() {
       try {
         const { error } = await supabase
           .from('inscripciones')
-          .update({ estado_inscripcion: 'baja' })
+          .update({ estado_inscripcion: 'baja_definitiva' })
           .eq('id', inscripcionId);
 
         if (error) throw error;
@@ -191,10 +191,10 @@ export default function MateriaDetalleScreen() {
 
   const renderAlumno = ({ item }: { item: AlumnoItem }) => (
     <View style={styles.studentCard}>
-      <View style={styles.studentInfo}>
+      <TouchableOpacity style={styles.studentInfo} onPress={() => router.push(`/student-report?materiaId=${materiaId}&boleta=${item.boleta}`)}>
         <Text style={styles.studentName}>{item.nombreCompleto}</Text>
         <Text style={styles.studentBoleta}>Boleta: {item.boleta}</Text>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.dropButton}
         onPress={() => confirmDropStudent(item)}

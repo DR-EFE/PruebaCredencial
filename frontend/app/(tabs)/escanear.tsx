@@ -9,6 +9,8 @@ import {
   Platform,
   FlatList,
   Modal,
+  ViewStyle,
+  ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +35,7 @@ interface SesionActiva {
   hora_inicio: string;
   estado: string;
   materia_nombre: string;
+  duracion_minutos?: number;
 }
 
 interface ScrapedStudent {
@@ -40,6 +43,24 @@ interface ScrapedStudent {
   nombreCompleto: string;
   carrera?: string;
   escuela?: string;
+}
+
+type FeedbackType = 'info' | 'success' | 'warning' | 'error';
+
+interface ScanFeedback {
+  type: FeedbackType;
+  title: string;
+  message: string;
+}
+
+interface AttendanceEntry {
+  id: string;
+  boleta: string;
+  nombreCompleto: string;
+  estado: 'presente' | 'tardanza';
+  minutosTardanza: number;
+  timestamp: string;
+  resumen?: string | null;
 }
 
 // --- 🔧 CONFIGURACIÓN Y SCRAPING CORREGIDOS PARA IPN/UPIICSA ---
@@ -237,6 +258,8 @@ export default function EscanearScreen() {
   const [sesionActiva, setSesionActiva] = useState<SesionActiva | null>(null);
   const [loadingSesion, setLoadingSesion] = useState(false);
   const [isPickerVisible, setPickerVisible] = useState(false);
+  const [feedback, setFeedback] = useState<ScanFeedback | null>(null);
+  const [recentAttendance, setRecentAttendance] = useState<AttendanceEntry[]>([]);
   const profesor = useAuthStore((state) => state.profesor);
   const selectedMateria = selectedMateriaId
     ? materias.find((materia) => materia.id === selectedMateriaId) ?? null
@@ -262,6 +285,12 @@ export default function EscanearScreen() {
       setScanning(true);
     }
   }, [isPickerVisible, canScan, processing]);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const timeout = setTimeout(() => setFeedback(null), 3500);
+    return () => clearTimeout(timeout);
+  }, [feedback]);
 
   const loadMaterias = async () => {
     try {
@@ -298,7 +327,20 @@ export default function EscanearScreen() {
       setProcessing(false);
       setScanning(false);
 
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const todayDate = new Date();
+      const dayOfWeek = todayDate.getDay();
+      const isoDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+      const { data: horario } = await supabase
+        .from('horarios')
+        .select('duracion_minutos')
+        .eq('materia_id', materia.id)
+        .eq('dia_semana', isoDayOfWeek)
+        .single();
+
+      const duracionClase = horario?.duracion_minutos ?? 90;
+
+      const today = format(todayDate, 'yyyy-MM-dd');
 
       if (
         sesionActiva &&
@@ -306,6 +348,7 @@ export default function EscanearScreen() {
         sesionActiva.fecha &&
         sesionActiva.fecha.startsWith(today)
       ) {
+        setSesionActiva((s) => (s ? { ...s, duracion_minutos: duracionClase } : null));
         setScanning(true);
         return;
       }
@@ -322,9 +365,14 @@ export default function EscanearScreen() {
 
       if (existingSessions && existingSessions.length > 0) {
         const session = existingSessions[0];
+        if (!sesionActiva || sesionActiva.id !== session.id) {
+          setRecentAttendance([]);
+          setFeedback(null);
+        }
         setSesionActiva({
           ...session,
           materia_nombre: materia.nombre,
+          duracion_minutos: duracionClase,
         });
         setScanning(true);
         return;
@@ -346,9 +394,15 @@ export default function EscanearScreen() {
 
       if (createError) throw createError;
 
+      if (!sesionActiva || sesionActiva.id !== nuevaSesion.id) {
+        setRecentAttendance([]);
+        setFeedback(null);
+      }
+
       setSesionActiva({
         ...nuevaSesion,
         materia_nombre: materia.nombre,
+        duracion_minutos: duracionClase,
       });
       setScanning(true);
     } catch (error: any) {
@@ -384,6 +438,13 @@ export default function EscanearScreen() {
         )}
       </TouchableOpacity>
     );
+  };
+
+  const resumeScanning = (delay = 1000) => {
+    setProcessing(false);
+    setTimeout(() => {
+      setScanning(true);
+    }, delay);
   };
 
   if (!permission) {
@@ -455,7 +516,12 @@ export default function EscanearScreen() {
 
     setProcessing(true);
     setScanning(false);
-    console.log('--- Iniciando escaneo de código de barras ---');
+    setFeedback({
+      type: 'info',
+      title: 'Procesando credencial...',
+      message: 'Validando c�digo QR y sincronizando datos del estudiante.',
+    });
+    console.log('--- Iniciando escaneo de c�digo de barras ---');
     console.log('Dato crudo:', data);
 
     try {
@@ -469,17 +535,20 @@ export default function EscanearScreen() {
         parsedUrl = new URL(rawContent);
         console.log('URL parseada:', parsedUrl.toString());
       } catch {
-        console.log('No es una URL válida, se intentará como texto plano.');
+        console.log('No es una URL v�lida, se intentar� como texto plano.');
         parsedUrl = null;
       }
 
       if (parsedUrl) {
         const allowed = isAllowedUrl(parsedUrl);
-        console.log('¿URL permitida?', allowed);
+        console.log('�URL permitida?', allowed);
         if (!allowed) {
-          Alert.alert('Error', 'URL no permitida. Usa una credencial institucional válida.');
-          setScanning(true);
-          setProcessing(false);
+          setFeedback({
+            type: 'error',
+            title: 'URL no permitida',
+            message: 'Usa una credencial institucional v�lida emitida por el IPN.',
+          });
+          resumeScanning(900);
           return;
         }
 
@@ -495,7 +564,7 @@ export default function EscanearScreen() {
         );
       } else {
         const boletaMatch = rawContent.match(/\d{10}/);
-        console.log('Resultado de búsqueda de boleta en texto plano:', boletaMatch);
+        console.log('Resultado de b�squeda de boleta en texto plano:', boletaMatch);
         if (boletaMatch) {
           scannedBoleta = boletaMatch[0];
         }
@@ -503,9 +572,22 @@ export default function EscanearScreen() {
 
       console.log('Boleta final a procesar:', scannedBoleta);
       if (!scannedBoleta || !/^\d{10}$/.test(scannedBoleta)) {
-        Alert.alert('Error', 'Código QR inválido');
-        setScanning(true);
-        setProcessing(false);
+        setFeedback({
+          type: 'error',
+          title: 'C�digo inv�lido',
+          message: 'No se detect� una boleta v�lida dentro del c�digo QR.',
+        });
+        resumeScanning(900);
+        return;
+      }
+
+      if (!sesionActiva) {
+        setFeedback({
+          type: 'warning',
+          title: 'Sesi�n no disponible',
+          message: 'Selecciona una materia para continuar con el pase de lista.',
+        });
+        resumeScanning(900);
         return;
       }
 
@@ -518,28 +600,27 @@ export default function EscanearScreen() {
 
       if (estudianteError || !estudiante) {
         console.log('Error de Supabase al buscar estudiante:', estudianteError);
-        Alert.alert(
-          'Estudiante no encontrado',
-          `La boleta "${scannedBoleta}" no corresponde a ningún estudiante registrado en el sistema.`
-        );
-        setScanning(true);
-        setProcessing(false);
+        setFeedback({
+          type: 'error',
+          title: 'Estudiante no encontrado',
+          message: `La boleta ${scannedBoleta} no est� registrada en la base de datos.`,
+        });
+        resumeScanning(1100);
         return;
       }
       console.log('Estudiante encontrado en la BD:', estudiante);
 
-
       if (scrapedProfile && scrapedProfile.boleta !== scannedBoleta) {
         console.warn('Inconsistencia de datos:', {
-            boletaScraping: scrapedProfile.boleta,
-            boletaQR: scannedBoleta,
+          boletaScraping: scrapedProfile.boleta,
+          boletaQR: scannedBoleta,
         });
-        Alert.alert(
-          'Datos inconsistentes',
-          'La credencial escaneada no coincide con la información encontrada.'
-        );
-        setScanning(true);
-        setProcessing(false);
+        setFeedback({
+          type: 'warning',
+          title: 'Datos inconsistentes',
+          message: 'La credencial escaneada no coincide con la boleta registrada.',
+        });
+        resumeScanning(1100);
         return;
       }
 
@@ -614,13 +695,13 @@ export default function EscanearScreen() {
             updatedFields.length > 0
               ? `Datos sincronizados (${updatedFields.join(', ')})`
               : 'Datos sincronizados';
-          console.log('Resumen de actualización:', updateSummary);
+          console.log('Resumen de actualizaci�n:', updateSummary);
         } else {
-            console.log('No hay datos nuevos que sincronizar para el estudiante.');
+          console.log('No hay datos nuevos que sincronizar para el estudiante.');
         }
       }
 
-      console.log(`Verificando inscripción a materia ${sesionActiva.materia_id} para boleta ${scannedBoleta}`);
+      console.log(`Verificando inscripci�n a materia ${sesionActiva.materia_id} para boleta ${scannedBoleta}`);
       const { data: inscripcion, error: inscripcionError } = await supabase
         .from('inscripciones')
         .select('*')
@@ -630,18 +711,18 @@ export default function EscanearScreen() {
         .single();
 
       if (inscripcionError || !inscripcion) {
-        console.log('Error de Supabase al buscar inscripción:', inscripcionError);
-        Alert.alert(
-          'Error',
-          `${estudiante.nombre} ${estudiante.apellido} no está inscrito en esta materia.`
-        );
-        setScanning(true);
-        setProcessing(false);
+        console.log('Error de Supabase al buscar inscripci�n:', inscripcionError);
+        setFeedback({
+          type: 'warning',
+          title: 'Inscripci�n pendiente',
+          message: `${estudiante.nombre} ${estudiante.apellido} no est� inscrito en esta materia.`,
+        });
+        resumeScanning(1100);
         return;
       }
-      console.log('Inscripción encontrada:', inscripcion);
+      console.log('Inscripci�n encontrada:', inscripcion);
 
-      console.log(`Verificando asistencia existente para sesión ${sesionActiva.id}`);
+      console.log(`Verificando asistencia existente para sesi�n ${sesionActiva.id}`);
       const { data: asistenciaExistente } = await supabase
         .from('asistencias')
         .select('*')
@@ -651,12 +732,12 @@ export default function EscanearScreen() {
 
       if (asistenciaExistente) {
         console.log('Asistencia ya registrada:', asistenciaExistente);
-        Alert.alert(
-          'Aviso',
-          `${estudiante.nombre} ${estudiante.apellido} ya tiene una asistencia registrada para esta sesión.`
-        );
-        setScanning(true);
-        setProcessing(false);
+        setFeedback({
+          type: 'warning',
+          title: 'Registro duplicado',
+          message: `${estudiante.nombre} ${estudiante.apellido} ya tiene asistencia registrada en esta sesi�n.`,
+        });
+        resumeScanning(1100);
         return;
       }
 
@@ -668,10 +749,21 @@ export default function EscanearScreen() {
         (horaActual.getTime() - horaInicio.getTime()) / (1000 * 60)
       );
 
-      let estado = 'presente';
+      const duracionClase = sesionActiva.duracion_minutos ?? 90;
+      if (diferenciaMinutos < 0 || diferenciaMinutos > duracionClase) {
+        setFeedback({
+          type: 'error',
+          title: 'Clase no iniciada o terminada',
+          message: `No se puede registrar, la clase de ${duracionClase} min ya finalizó o no ha empezado.`,
+        });
+        resumeScanning(1500);
+        return;
+      }
+
+      let estado: 'presente' | 'tardanza' = 'presente';
       let minutosTardanza = 0;
 
-      if (diferenciaMinutos > 10) {
+      if (diferenciaMinutos > 15) {
         estado = 'tardanza';
         minutosTardanza = diferenciaMinutos;
       }
@@ -693,70 +785,145 @@ export default function EscanearScreen() {
         console.error('Error al registrar asistencia:', asistenciaError);
         throw asistenciaError;
       }
-      console.log('✅ Asistencia registrada con éxito.');
+      console.log('Asistencia registrada con �xito.');
 
-      const mensaje =
+      const nombreCompletoDb =
+        `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.trim() ||
+        scrapedProfile?.nombreCompleto ||
+        scannedBoleta;
+
+      const attendanceEntry: AttendanceEntry = {
+        id: `${sesionActiva.id}-${scannedBoleta}-${Date.now()}`,
+        boleta: scannedBoleta,
+        nombreCompleto: nombreCompletoDb,
+        estado,
+        minutosTardanza,
+        timestamp: new Date().toISOString(),
+        resumen: updateSummary,
+      };
+
+      setRecentAttendance((prev) => [attendanceEntry, ...prev].slice(0, 25));
+
+      const baseMessage =
         estado === 'presente'
-          ? `Asistencia registrada!\n${estudiante.nombre} ${estudiante.apellido}`
-          : `Tardanza registrada\n${estudiante.nombre} ${estudiante.apellido}\n${minutosTardanza} minutos tarde`;
+          ? `${nombreCompletoDb} registrado como presente.`
+          : `${nombreCompletoDb} lleg� con ${minutosTardanza} minutos de tardanza.`;
 
-      const mensajeFinal = updateSummary ? `${mensaje}\n\n${updateSummary}` : mensaje;
+      const detailMessage = updateSummary ? `${baseMessage}\n${updateSummary}` : baseMessage;
 
-      Alert.alert('Éxito', mensajeFinal);
+      setFeedback({
+        type: estado === 'presente' ? 'success' : 'warning',
+        title: estado === 'presente' ? 'Asistencia registrada' : 'Tardanza registrada',
+        message: detailMessage,
+      });
+
+      resumeScanning(estado === 'presente' ? 800 : 1300);
     } catch (error: any) {
-      console.error('🚨 ERROR GENERAL en handleBarCodeScanned:', error);
-      Alert.alert('Error', error.message || 'No se pudo registrar la asistencia. Inténtalo de nuevo.');
-    } finally {
-      setTimeout(() => {
-        setScanning(true);
-        setProcessing(false);
-      }, 2000);
+      console.error('ERROR GENERAL en handleBarCodeScanned:', error);
+      setFeedback({
+        type: 'error',
+        title: 'Error al registrar asistencia',
+        message: error?.message || 'No se pudo registrar la asistencia. Int�ntalo de nuevo.',
+      });
+      resumeScanning(1500);
     }
+  };
+  const defaultStatus: ScanFeedback = canScan
+    ? (processing
+        ? {
+            type: 'info',
+            title: 'Procesando...',
+            message: 'Validando credencial del estudiante.',
+          }
+        : {
+            type: 'info',
+            title: 'Listo para escanear',
+            message: 'Coloca el c�digo QR dentro del marco.',
+          })
+    : {
+        type: 'warning',
+        title: 'Selecciona una materia',
+        message: 'Elige una materia para iniciar el registro de asistencia.',
+      };
+
+  const activeStatus = feedback ?? defaultStatus;
+
+  const statusVariants: Record<FeedbackType, { style: ViewStyle; icon: string; iconColor: string }> = {
+    info: { style: styles.statusInfo, icon: 'scan', iconColor: '#2563eb' },
+    success: { style: styles.statusSuccess, icon: 'checkmark-circle', iconColor: '#047857' },
+    warning: { style: styles.statusWarning, icon: 'alert-circle', iconColor: '#b45309' },
+    error: { style: styles.statusError, icon: 'close-circle', iconColor: '#b91c1c' },
+  };
+
+  const statusVariant = statusVariants[activeStatus.type];
+  const showSpinner = processing && activeStatus.type === 'info';
+
+  const renderAttendanceItem = ({ item }: { item: AttendanceEntry }) => {
+    const isLate = item.estado === 'tardanza';
+    return (
+      <View style={styles.attendanceItem}>
+        <View style={styles.attendanceItemRow}>
+          <Ionicons
+            name={isLate ? 'time' : 'checkmark-circle'}
+            size={20}
+            color={isLate ? '#f59e0b' : '#16a34a'}
+            style={styles.attendanceItemIcon}
+          />
+          <View style={styles.attendanceTexts}>
+            <Text style={styles.attendanceName}>{item.nombreCompleto}</Text>
+            <Text style={styles.attendanceBoleta}>{item.boleta}</Text>
+          </View>
+          <View
+            style={[
+              styles.attendanceStatusBadge,
+              isLate ? styles.attendanceStatusLate : styles.attendanceStatusPresent,
+            ]}
+          >
+            <Text style={styles.attendanceStatusText}>
+              {isLate ? 'Tarde' : 'Presente'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.attendanceMetaRow}>
+          <Text style={styles.attendanceMetaText}>
+            {format(new Date(item.timestamp), 'HH:mm:ss')}
+          </Text>
+          {isLate ? (
+            <Text style={styles.attendanceMetaText}>+{item.minutosTardanza} min</Text>
+          ) : null}
+        </View>
+        {item.resumen ? (
+          <Text style={styles.attendanceMetaUpdate}>{item.resumen}</Text>
+        ) : null}
+      </View>
+    );
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.sessionInfo}>
-        <Text style={styles.selectorLabel}>Materia</Text>
-        <TouchableOpacity
-          style={styles.selectorInput}
-          onPress={() => {
-            setScanning(false);
-            setPickerVisible(true);
-          }}
-        >
-          <Text style={styles.selectorValue}>
-            {selectedMateria ? selectedMateria.nombre : 'Selecciona una materia'}
-          </Text>
-          <Ionicons
-            name={isPickerVisible ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color="#2563eb"
-          />
-        </TouchableOpacity>
-
-        {selectedMateria && (
-          loadingSesion ? (
-            <View style={styles.sessionLoading}>
-              <ActivityIndicator size="small" color="#2563eb" />
-              <Text style={styles.sessionLoadingText}>Preparando sesión...</Text>
-            </View>
-          ) : sesionActiva ? (
-            <>
-              <View style={styles.sessionBadge}>
-                <Ionicons name="radio-button-on" size={12} color="#10b981" />
-                <Text style={styles.sessionBadgeText}>Sesion lista</Text>
-              </View>
-              <Text style={styles.sessionTitle}>{sesionActiva.materia_nombre}</Text>
-              <Text style={styles.sessionSubtitle}>
-                {format(new Date(sesionActiva.fecha), "d 'de' MMMM, yyyy")}
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.sessionHelper}>
-              Selecciona una materia para preparar la sesión de asistencia.
+        <View style={styles.sessionHeader}>
+          <View style={styles.sessionTitleContainer}>
+            <Ionicons name="book-outline" size={20} color="#6b7280" />
+            <Text style={styles.sessionTitle} numberOfLines={1}>
+              {selectedMateria ? selectedMateria.nombre : 'Selecciona materia'}
             </Text>
-          )
+          </View>
+          <TouchableOpacity
+            style={styles.changeMateriaButton}
+            onPress={() => {
+              setScanning(false);
+              setPickerVisible(true);
+            }}
+          >
+            <Text style={styles.changeMateriaButtonText}>Cambiar</Text>
+          </TouchableOpacity>
+        </View>
+        {loadingSesion && (
+          <View style={styles.sessionLoading}>
+            <ActivityIndicator size="small" color="#2563eb" />
+            <Text style={styles.sessionLoadingText}>Preparando sesión...</Text>
+          </View>
         )}
       </View>
 
@@ -780,21 +947,50 @@ export default function EscanearScreen() {
         </CameraView>
       </View>
 
-      <View style={styles.instructions}>
-        <Text style={styles.instructionsTitle}>
-          {processing
-            ? 'Procesando...'
-            : canScan
-            ? 'Escanea la credencial del estudiante'
-            : 'Selecciona una materia para comenzar'}
-        </Text>
-        <Text style={styles.instructionsText}>
-          {canScan
-            ? 'Coloca el código QR dentro del marco'
-            : 'Elige una materia para iniciar el registro de asistencia'}
-        </Text>
-      </View>
+      <View style={styles.bottomPanel}>
+        <View style={[styles.statusMessage, statusVariant.style]}>
+          {showSpinner ? (
+            <ActivityIndicator
+              size="small"
+              color={statusVariant.iconColor}
+              style={styles.statusIcon}
+            />
+          ) : (
+            <Ionicons
+              name={statusVariant.icon}
+              size={22}
+              color={statusVariant.iconColor}
+              style={styles.statusIcon}
+            />
+          )}
+          <View style={styles.statusTexts}>
+            <Text style={styles.statusTitle}>{activeStatus.title}</Text>
+            <Text style={styles.statusSubtitle}>{activeStatus.message}</Text>
+          </View>
+        </View>
 
+        <View style={styles.attendanceHeader}>
+          <Text style={styles.attendanceTitle}>Pase de lista</Text>
+          <View style={styles.attendanceCountBadge}>
+            <Ionicons name="people" size={14} color="#2563eb" />
+            <Text style={styles.attendanceCountText}>{recentAttendance.length}</Text>
+          </View>
+        </View>
+
+        {recentAttendance.length === 0 ? (
+          <View style={styles.attendanceListEmptyContent}>
+            <Text style={styles.attendanceEmptyText}>
+              Aún no hay asistencias registradas en esta sesión.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={recentAttendance}
+            renderItem={renderAttendanceItem}
+            keyExtractor={(item) => item.id}
+          />
+        )}
+      </View>
       <Modal
         visible={isPickerVisible}
         transparent
@@ -816,12 +1012,6 @@ export default function EscanearScreen() {
           </View>
         </View>
       </Modal>
-
-      {processing && (
-        <View style={styles.processingOverlay}>
-          <ActivityIndicator size="large" color="#fff" />
-        </View>
-      )}
     </View>
   );
 }
@@ -829,7 +1019,7 @@ export default function EscanearScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#f9fafb',
   },
   permissionContainer: {
     flex: 1,
@@ -883,11 +1073,36 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   sessionInfo: {
     backgroundColor: '#fff',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  sessionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sessionTitleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  changeMateriaButton: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  changeMateriaButtonText: {
+    color: '#2563eb',
+    fontWeight: '600',
+    fontSize: 14,
   },
   selectorLabel: {
     fontSize: 12,
@@ -914,6 +1129,7 @@ const styles = StyleSheet.create({
   },
   sessionLoading: {
     flexDirection: 'row',
+    marginTop: 12,
     alignItems: 'center',
   },
   sessionLoadingText: {
@@ -938,7 +1154,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   sessionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 4,
@@ -952,7 +1168,8 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   cameraContainer: {
-    flex: 1,
+    height: 300, // Altura fija para la cámara
+    backgroundColor: '#000',
   },
   camera: {
     flex: 1,
@@ -998,26 +1215,146 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4,
     borderRightWidth: 4,
   },
-  instructions: {
-    backgroundColor: '#fff',
-    padding: 24,
-    alignItems: 'center',
+  bottomPanel: {
+    backgroundColor: '#f9fafb',
+    padding: 20,
+    flex: 1,
   },
-  instructionsTitle: {
+  statusMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  statusIcon: {
+    marginRight: 12,
+  },
+  statusTexts: {
+    flex: 1,
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 2,
+  },
+  statusSubtitle: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  statusInfo: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  statusSuccess: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#bbf7d0',
+  },
+  statusWarning: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fde68a',
+  },
+  statusError: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#fecaca',
+  },
+  attendanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  attendanceTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 8,
   },
-  instructionsText: {
+  attendanceCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0f2fe',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  attendanceCountText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1d4ed8',
+  },
+  attendanceList: {
+  },
+  attendanceListEmptyContent: {
+    justifyContent: 'center',
+  },
+  attendanceEmptyText: {
+    textAlign: 'center',
     fontSize: 14,
     color: '#6b7280',
+    paddingVertical: 12,
   },
-  processingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
+  attendanceItem: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  attendanceItemRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  attendanceItemIcon: {
+    marginRight: 12,
+  },
+  attendanceTexts: {
+    flex: 1,
+  },
+  attendanceName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  attendanceBoleta: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  attendanceStatusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  attendanceStatusPresent: {
+    backgroundColor: '#dcfce7',
+  },
+  attendanceStatusLate: {
+    backgroundColor: '#fef3c7',
+  },
+  attendanceStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  attendanceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  attendanceMetaText: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  attendanceMetaUpdate: {
+    fontSize: 12,
+    color: '#1d4ed8',
+    marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -1080,4 +1417,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
