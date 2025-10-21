@@ -18,27 +18,27 @@ Aplicación móvil en React Native con Expo para el registro de asistencia media
 ## Estructura de la Aplicación
 
 ### Pantallas Principales
-1. **Login** (`app/(auth)/login.tsx`)
+1. **Login** (`src/features/auth/screens/LoginScreen.tsx`)
    - Autenticación de profesores con email/contraseña
    - Validación de permisos de profesor
    
-2. **Mis Materias** (`app/(tabs)/materias.tsx`)
+2. **Mis Materias** (`src/features/session/screens/SessionListScreen.tsx`)
    - Lista de materias del profesor
    - Botón para iniciar sesión de clase
    - Información de horarios y grupos
 
-3. **Escanear QR** (`app/(tabs)/escanear.tsx`)
+3. **Escanear QR** (`src/features/attendance/screens/AttendanceScannerScreen.tsx`)
    - Escaneo de códigos QR de credenciales
    - Validación de estudiantes inscritos
    - Registro automático de asistencia
    - Cálculo de tardanzas
 
-4. **Reportes** (`app/(tabs)/reportes.tsx`)
+4. **Reportes** (`src/features/attendance/screens/AttendanceReportScreen.tsx`)
    - Estadísticas por materia
    - Historial de sesiones
    - Porcentajes de asistencia
 
-5. **Perfil** (`app/(tabs)/perfil.tsx`)
+5. **Perfil** (`src/features/teacher/screens/TeacherProfileScreen.tsx`)
    - Información del profesor
    - Configuraciones
    - Cerrar sesión
@@ -63,14 +63,34 @@ Aplicación móvil en React Native con Expo para el registro de asistencia media
 ### Configuración
 - `app.json`: Configuración de Expo y credenciales
 - `.env`: Variables de entorno
-- `lib/supabase.ts`: Cliente de Supabase
+- `src/core/api/supabaseClient.ts`: Cliente de Supabase
 
 ### Estado Global
-- `store/useAuthStore.ts`: Estado de autenticación
-- `store/useSesionStore.ts`: Estado de sesión activa
+- `src/core/auth/useAuthStore.ts`: Estado de autenticación
+- `src/features/session/store/useSessionStore.ts`: Estado de sesión activa
 
 ### Contexto
-- `contexts/AuthContext.tsx`: Proveedor de autenticación
+- `src/core/auth/AuthProvider.tsx`: Proveedor de autenticación
+
+### Arquitectura (Screaming Architecture)
+```
+src/
+|- app/                     # Vistas y navegación (Expo Router)
+|- core/                    # Servicios e infraestructura transversal
+|  |- api/                  # Integraciones (Supabase, HTTP)
+|  |- auth/                 # Estado y providers de autenticación
+|  |- storage/              # Persistencia local / caché
+|  |- utils/                # Utilidades compartidas
+|  |- hooks/                # Hooks reutilizables
+|- features/                # Módulos de dominio
+|  |- attendance/           # Escaneo y reportes de asistencia
+|  |- session/              # Gestión de materias, sesiones e inscripciones
+|  |- teacher/              # Perfil y herramientas del docente
+|  |- student/              # Información y reportes por alumno
+|  |- auth/                 # Flujo de registro y acceso
+|- ui/                      # Componentes de diseño reutilizables
+|- tests/                   # Pruebas unitarias e integración
+```
 
 ## Base de Datos
 

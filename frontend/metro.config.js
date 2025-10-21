@@ -7,7 +7,7 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver.alias = {
   ...(config.resolver.alias || {}),
-  '@': path.resolve(__dirname),
+  '@': path.resolve(__dirname, 'src'),
 };
 
 // Use a stable on-disk store (shared across web/android)

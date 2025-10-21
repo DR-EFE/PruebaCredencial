@@ -53,7 +53,10 @@
     },
     "extra": {
       "supabaseUrl": "https://jeffzletkqeyxfxcahqs.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplZmZ6bGV0a3FleXhmeGNhaHFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTMzNTAsImV4cCI6MjA3MzI4OTM1MH0.BkxOb4eC91lTx-xniRYcSSGJI8nl7O4VYqIyopKtGKs"
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplZmZ6bGV0a3FleXhmeGNhaHFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTMzNTAsImV4cCI6MjA3MzI4OTM1MH0.BkxOb4eC91lTx-xniRYcSSGJI8nl7O4VYqIyopKtGKs",
+      "expoRouter": {
+        "appRoot": "src/app"
+      }
     }
   }
 }
