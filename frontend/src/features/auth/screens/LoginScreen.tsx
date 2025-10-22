@@ -12,48 +12,45 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/core/api/supabaseClient';
+import { useAppNotifications } from '@/ui/components/AppNotificationProvider';
+import { useFormValidation } from '@/ui/hooks/useFormValidation';
 
-type FieldErrors = {
-  email?: string;
-  password?: string;
-  reset?: string;
-};
-
-type StatusMessage =
-  | { type: 'error'; message: string }
-  | { type: 'success'; message: string }
-  | null;
+type FieldKey = 'email' | 'password' | 'reset';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [status, setStatus] = useState<StatusMessage>(null);
+  const { clearError, require, validate, getError } = useFormValidation<FieldKey>();
+  const { notify, showLoader, hideLoader } = useAppNotifications();
   const router = useRouter();
 
   const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
   const validateFields = () => {
-    const nextErrors: FieldErrors = {};
-    if (!trimmedEmail) {
-      nextErrors.email = 'Ingresa tu correo institucional.';
-    } else if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
-      nextErrors.email = 'Verifica el formato del correo.';
+    let valid = true;
+
+    if (!require('email', trimmedEmail, 'Ingresa tu correo institucional.')) {
+      valid = false;
+    } else if (
+      !validate('email', () => /^\S+@\S+\.\S+$/.test(trimmedEmail), 'Verifica el formato del correo.')
+    ) {
+      valid = false;
     }
-    if (!password) {
-      nextErrors.password = 'Ingresa tu contrasena.';
+
+    if (!require('password', password, 'Ingresa tu contrasena.')) {
+      valid = false;
     }
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+
+    return valid;
   };
 
   const handleLogin = async () => {
-    setStatus(null);
     if (!validateFields()) return;
 
     setLoading(true);
+    showLoader('Iniciando sesion...');
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
@@ -66,64 +63,49 @@ export default function LoginScreen() {
 
       router.replace('/(tabs)');
     } catch (err: any) {
-      setStatus({
+      notify({
         type: 'error',
-        message: err?.message ?? 'No se pudo iniciar sesion. Intenta nuevamente.',
+        title: 'No se pudo iniciar sesion',
+        message: err?.message ?? 'Intenta nuevamente en unos segundos.',
       });
     } finally {
+      hideLoader();
       setLoading(false);
     }
   };
 
   const handleResetPassword = async () => {
-    setStatus(null);
-    setErrors((prev) => ({ ...prev, reset: undefined }));
+    clearError('reset');
 
-    if (!trimmedEmail) {
-      setErrors((prev) => ({ ...prev, reset: 'Ingresa tu correo para enviar el enlace.' }));
+    if (!require('reset', trimmedEmail, 'Ingresa tu correo para enviar el enlace.')) {
       return;
     }
 
-    if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
-      setErrors((prev) => ({ ...prev, reset: 'El correo no tiene un formato valido.' }));
+    if (!validate('reset', () => /^\S+@\S+\.\S+$/.test(trimmedEmail), 'El correo no tiene un formato valido.')) {
       return;
     }
 
     setLoading(true);
+    showLoader('Enviando enlace...');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
       if (error) throw error;
 
-      setStatus({
+      notify({
         type: 'success',
-        message: 'Enviamos un correo con el enlace para restablecer tu contrasena.',
+        title: 'Enlace enviado',
+        message: 'Revisa tu correo para restablecer tu contrasena.',
       });
     } catch (err: any) {
-      setStatus({
+      notify({
         type: 'error',
-        message: err?.message ?? 'No se pudo enviar el enlace de recuperacion.',
+        title: 'No pudimos enviar el enlace',
+        message: err?.message ?? 'Intenta nuevamente en unos minutos.',
       });
     } finally {
+      hideLoader();
       setLoading(false);
     }
-  };
-
-  const renderStatusMessage = () => {
-    if (!status) return null;
-    const isError = status.type === 'error';
-    return (
-      <View style={[styles.statusBanner, isError ? styles.statusError : styles.statusSuccess]}>
-        <Ionicons
-          name={isError ? 'alert-circle' : 'checkmark-circle'}
-          size={18}
-          color={isError ? '#b91c1c' : '#047857'}
-          style={styles.statusIcon}
-        />
-        <Text style={[styles.statusText, isError ? styles.statusTextError : styles.statusTextSuccess]}>
-          {status.message}
-        </Text>
-      </View>
-    );
   };
 
   return (
@@ -141,7 +123,6 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
-          {renderStatusMessage()}
           <View style={styles.inputContainer}>
             <Ionicons name='mail-outline' size={20} color='#6b7280' style={styles.inputIcon} />
             <TextInput
@@ -150,16 +131,15 @@ export default function LoginScreen() {
               value={email}
               onChangeText={(value) => {
                 setEmail(value);
-                if (errors.email) {
-                  setErrors((prev) => ({ ...prev, email: undefined }));
-                }
+                clearError('email');
+                clearError('reset');
               }}
               autoCapitalize='none'
               keyboardType='email-address'
               editable={!loading}
             />
           </View>
-          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+          {getError('email') ? <Text style={styles.errorText}>{getError('email')}</Text> : null}
 
           <View style={styles.inputContainer}>
             <Ionicons name='lock-closed-outline' size={20} color='#6b7280' style={styles.inputIcon} />
@@ -169,9 +149,7 @@ export default function LoginScreen() {
               value={password}
               onChangeText={(value) => {
                 setPassword(value);
-                if (errors.password) {
-                  setErrors((prev) => ({ ...prev, password: undefined }));
-                }
+                clearError('password');
               }}
               secureTextEntry={!showPassword}
               editable={!loading}
@@ -184,12 +162,12 @@ export default function LoginScreen() {
               />
             </TouchableOpacity>
           </View>
-          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+          {getError('password') ? <Text style={styles.errorText}>{getError('password')}</Text> : null}
 
           <TouchableOpacity style={styles.forgotPassword} onPress={handleResetPassword} disabled={loading}>
-            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contrasena?</Text>
+            <Text style={styles.forgotPasswordText}>��Olvidaste tu contrasena?</Text>
           </TouchableOpacity>
-          {errors.reset ? <Text style={styles.errorText}>{errors.reset}</Text> : null}
+          {getError('reset') ? <Text style={styles.errorText}>{getError('reset')}</Text> : null}
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -204,7 +182,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.registerPrompt}>
-            <Text style={styles.registerText}>¿No tienes cuenta?</Text>
+            <Text style={styles.registerText}>��No tienes cuenta?</Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register')} disabled={loading}>
               <Text style={styles.registerLink}>Registrate</Text>
             </TouchableOpacity>
@@ -255,35 +233,6 @@ const styles = StyleSheet.create({
   },
   form: {
     marginBottom: 32,
-  },
-  statusBanner: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  statusIcon: {
-    marginRight: 10,
-  },
-  statusText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  statusError: {
-    backgroundColor: '#fee2e2',
-  },
-  statusSuccess: {
-    backgroundColor: '#dcfce7',
-  },
-  statusTextError: {
-    color: '#b91c1c',
-    fontWeight: '600',
-  },
-  statusTextSuccess: {
-    color: '#047857',
-    fontWeight: '600',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -360,13 +309,12 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   footerText: {
-    fontSize: 14,
     color: '#6b7280',
-    fontWeight: '600',
+    fontSize: 12,
+    marginBottom: 4,
   },
   footerSubtext: {
-    fontSize: 12,
     color: '#9ca3af',
-    marginTop: 4,
+    fontSize: 12,
   },
 });

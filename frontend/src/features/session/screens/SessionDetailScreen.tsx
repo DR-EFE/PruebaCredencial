@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/core/api/supabaseClient';
 import { useAuthStore } from '@/core/auth/useAuthStore';
+import { useAppNotifications } from '@/ui/components/AppNotificationProvider';
 
 interface MateriaDetalle {
   id: number;
@@ -45,6 +45,7 @@ export default function MateriaDetalleScreen() {
   const { materia_id } = useLocalSearchParams();
   const router = useRouter();
   const profesor = useAuthStore((state) => state.profesor);
+  const { notify } = useAppNotifications();
 
   const materiaId = useMemo(() => {
     const parsed = Number(materia_id);
@@ -60,7 +61,7 @@ export default function MateriaDetalleScreen() {
   const loadData = useCallback(
     async (options: { silent?: boolean } = {}) => {
       if (!materiaId) {
-        Alert.alert('Materia no encontrada', 'No pudimos identificar la materia seleccionada.');
+        notify({ type: 'error', title: 'Materia no encontrada', message: 'No pudimos identificar la materia seleccionada.' });
         router.back();
         return;
       }
@@ -123,7 +124,7 @@ export default function MateriaDetalleScreen() {
         setAlumnos(alumnosList);
       } catch (error: any) {
         console.error(error);
-        Alert.alert('Error', 'No se pudo cargar la información de la materia.');
+        notify({ type: 'error', title: 'No se pudo cargar la materia', message: 'Intenta nuevamente en unos minutos.' });
       } finally {
         if (!options.silent) {
           setLoading(false);
@@ -131,7 +132,7 @@ export default function MateriaDetalleScreen() {
         setRefreshing(false);
       }
     },
-    [materiaId, router]
+    [materiaId, notify, router]
   );
 
   useFocusEffect(
@@ -158,37 +159,38 @@ export default function MateriaDetalleScreen() {
 
         if (error) throw error;
 
-        Alert.alert('Alumno dado de baja', `${nombreCompleto} ya no está activo en la materia.`);
+        notify({
+          type: 'success',
+          title: 'Alumno dado de baja',
+          message: `${nombreCompleto} ya no esta activo en la materia.`,
+        });
         await loadData({ silent: true });
       } catch (error: any) {
         console.error(error);
-        Alert.alert('Error', 'No se pudo dar de baja al alumno.');
+        notify({
+          type: 'error',
+          title: 'No se pudo dar de baja',
+          message: 'Intentalo nuevamente.',
+        });
       } finally {
         setProcessingId(null);
       }
     },
-    [loadData, profesor]
+    [loadData, notify, profesor]
   );
 
   const confirmDropStudent = useCallback(
     (item: AlumnoItem) => {
-      Alert.alert(
-        'Dar de baja',
-        `¿Quieres dar de baja a ${item.nombreCompleto}?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Dar de baja',
-            style: 'destructive',
-            onPress: () => handleDropStudent(item.inscripcionId, item.nombreCompleto),
-          },
-        ],
-        { cancelable: true }
-      );
+      notify({
+        type: 'warning',
+        title: 'Dar de baja',
+        message: `Confirma dar de baja a ${item.nombreCompleto}.`,
+        actionLabel: 'Dar de baja',
+        onAction: () => handleDropStudent(item.inscripcionId, item.nombreCompleto),
+      });
     },
-    [handleDropStudent]
+    [handleDropStudent, notify]
   );
-
   const renderAlumno = ({ item }: { item: AlumnoItem }) => (
     <View style={styles.studentCard}>
       <TouchableOpacity style={styles.studentInfo} onPress={() => router.push(`/student-report?materiaId=${materiaId}&boleta=${item.boleta}`)}>

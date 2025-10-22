@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -16,8 +16,8 @@ import Papa from 'papaparse';
 
 import { supabase } from '@/core/api/supabaseClient';
 import { useAuthStore } from '@/core/auth/useAuthStore';
-
-import { FeedbackBanner, FeedbackBannerProps } from '@/features/session/components/FeedbackBanner';
+import { useAppNotifications } from '@/ui/components/AppNotificationProvider';
+import { useFormValidation } from '@/ui/hooks/useFormValidation';
 
 type TabKey = 'csv' | 'manual';
 
@@ -38,21 +38,21 @@ export default function SessionEnrollmentScreen() {
   const [invalidBoletas, setInvalidBoletas] = useState<string[]>([]);
   const [duplicateBoletas, setDuplicateBoletas] = useState<string[]>([]);
   const [manualBoleta, setManualBoleta] = useState('');
-  const [manualError, setManualError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState<FeedbackBannerProps | null>(null);
-
-  useEffect(() => {
-    if (!feedback) return;
-    const timeout = setTimeout(() => setFeedback(null), 4000);
-    return () => clearTimeout(timeout);
-  }, [feedback]);
+  const { notify, showLoader, hideLoader } = useAppNotifications();
+  const {
+    setError: setManualFieldError,
+    clearError: clearManualFieldError,
+    getError: getManualFieldError,
+    require: requireManualField,
+    validate: validateManualField,
+  } = useFormValidation<'manualBoleta'>();
 
   const instructions = useMemo(
     () => [
       'La primera fila debe incluir la cabecera "boleta".',
-      'Cada boleta debe contener exactamente 10 dígitos numéricos.',
-      'Se descartan filas vacías, duplicadas o con formato incorrecto.',
+      'Cada boleta debe contener exactamente 10 digitos numericos.',
+      'Se descartan filas vacias, duplicadas o con formato incorrecto.',
     ],
     []
   );
@@ -61,14 +61,14 @@ export default function SessionEnrollmentScreen() {
 
   const handleFilePick = async () => {
     try {
-      const res = await DocumentPicker.getDocumentAsync({ type: 'text/csv' });
-      if (res.canceled) {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'text/csv' });
+      if (result.canceled) {
         return;
       }
 
-      const asset = res.assets?.[0];
+      const asset = result.assets?.[0];
       if (!asset) {
-        setFeedback({
+        notify({
           type: 'error',
           title: 'No se pudo leer el archivo',
           message: 'Intenta seleccionar el CSV nuevamente.',
@@ -76,13 +76,15 @@ export default function SessionEnrollmentScreen() {
         return;
       }
 
+      showLoader('Procesando archivo...');
       const fileContent = await fetch(asset.uri).then((response) => response.text());
 
       Papa.parse(fileContent, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
-          const rows = Array.isArray(results.data) ? results.data : [];
+        complete: (parseResult) => {
+          hideLoader();
+          const rows = Array.isArray(parseResult.data) ? parseResult.data : [];
           const seen = new Set<string>();
           const valid: string[] = [];
           const invalid: string[] = [];
@@ -90,7 +92,9 @@ export default function SessionEnrollmentScreen() {
 
           rows.forEach((row: any) => {
             const rawBoleta = typeof row?.boleta === 'string' ? row.boleta.trim() : '';
-            if (!rawBoleta) return;
+            if (!rawBoleta) {
+              return;
+            }
 
             if (!isValidBoleta(rawBoleta)) {
               invalid.push(rawBoleta);
@@ -112,12 +116,15 @@ export default function SessionEnrollmentScreen() {
           setDuplicateBoletas(duplicates);
 
           if (valid.length === 0) {
-            setFeedback({
+            notify({
               type: 'error',
-              title: 'No se detectaron boletas válidas',
-              message: 'Revisa que la columna se llame "boleta" y que cada valor tenga 10 dígitos.',
+              title: 'No se detectaron boletas validas',
+              message: 'Confirma que la columna se llama "boleta" y que cada valor tiene 10 digitos.',
             });
-          } else if (invalid.length > 0 || duplicates.length > 0) {
+            return;
+          }
+
+          if (invalid.length > 0 || duplicates.length > 0) {
             const issues = [
               invalid.length > 0 ? `${invalid.length} con formato incorrecto` : null,
               duplicates.length > 0 ? `${duplicates.length} duplicadas` : null,
@@ -125,30 +132,33 @@ export default function SessionEnrollmentScreen() {
               .filter(Boolean)
               .join(' y ');
 
-            setFeedback({
+            notify({
               type: 'warning',
-              title: 'Importación parcial',
+              title: 'Importacion parcial',
               message: `Se agregaron ${valid.length} boletas. Se omitieron ${issues}.`,
             });
-          } else {
-            setFeedback({
-              type: 'success',
-              title: 'Archivo cargado',
-              message: `Se prepararon ${valid.length} boletas para inscripción.`,
-            });
+            return;
           }
+
+          notify({
+            type: 'success',
+            title: 'Archivo cargado',
+            message: `Se prepararon ${valid.length} boletas para inscripcion.`,
+          });
         },
         error: () => {
-          setFeedback({
+          hideLoader();
+          notify({
             type: 'error',
             title: 'Error al procesar el CSV',
-            message: 'Confirma que el archivo está en formato CSV y vuelve a intentarlo.',
+            message: 'Confirma que el archivo esta en formato CSV y vuelve a intentarlo.',
           });
         },
       });
     } catch (error) {
+      hideLoader();
       console.error('Error picking document:', error);
-      setFeedback({
+      notify({
         type: 'error',
         title: 'No se pudo leer el archivo',
         message: 'Intenta seleccionar el CSV nuevamente.',
@@ -169,24 +179,25 @@ export default function SessionEnrollmentScreen() {
 
   const handleSaveAlumnos = async () => {
     if (!profesor) {
-      setFeedback({
+      notify({
         type: 'error',
-        title: 'Sesión inválida',
-        message: 'Vuelve a iniciar sesión para continuar.',
+        title: 'Sesion invalida',
+        message: 'Vuelve a iniciar sesion para continuar.',
       });
       return;
     }
 
     if (newAlumnos.length === 0) {
-      setFeedback({
+      notify({
         type: 'warning',
         title: 'Nada que inscribir',
-        message: 'Importa un archivo con boletas válidas antes de continuar.',
+        message: 'Importa un archivo con boletas validas antes de continuar.',
       });
       return;
     }
 
     setIsSaving(true);
+    showLoader('Inscribiendo alumnos...');
     try {
       const materiaId = parseInt(materia_id as string, 10);
       const payload = newAlumnos.map((alumno) => ({
@@ -201,55 +212,62 @@ export default function SessionEnrollmentScreen() {
         throw error;
       }
 
-      setFeedback({
+      notify({
         type: 'success',
-        title: 'Inscripción completada',
+        title: 'Inscripcion completada',
         message: `${newAlumnos.length} alumnos fueron inscritos correctamente.`,
       });
       handleClearCsv();
     } catch (error: any) {
       console.error('Error saving alumnos:', error);
-      setFeedback({
+      notify({
         type: 'error',
         title: 'No se pudo inscribir',
-        message: error?.message ?? 'Inténtalo de nuevo más tarde.',
+        message: error?.message ?? 'Intentalo de nuevo mas tarde.',
       });
     } finally {
+      hideLoader();
       setIsSaving(false);
     }
   };
 
   const handleAddManual = async () => {
-    setManualError(null);
+    clearManualFieldError('manualBoleta');
 
-    if (!manualBoleta.trim()) {
-      setManualError('Ingresa la boleta del alumno.');
+    const trimmedBoleta = manualBoleta.trim();
+
+    if (!requireManualField('manualBoleta', trimmedBoleta, 'Ingresa la boleta del alumno.')) {
       return;
     }
 
-    if (!isValidBoleta(manualBoleta.trim())) {
-      setManualError('La boleta debe tener exactamente 10 dígitos numéricos.');
+    if (
+      !validateManualField(
+        'manualBoleta',
+        () => isValidBoleta(trimmedBoleta),
+        'La boleta debe tener exactamente 10 digitos numericos.',
+      )
+    ) {
       return;
     }
 
     if (!profesor) {
-      setFeedback({
+      notify({
         type: 'error',
-        title: 'Sesión inválida',
-        message: 'Vuelve a iniciar sesión para continuar.',
+        title: 'Sesion invalida',
+        message: 'Vuelve a iniciar sesion para continuar.',
       });
       return;
     }
 
     setIsSaving(true);
+    showLoader('Inscribiendo alumno...');
     try {
-      const normalizedBoleta = manualBoleta.trim();
       const materiaId = parseInt(materia_id as string, 10);
 
       const { data: existingInscription, error: inscriptionError } = await supabase
         .from('inscripciones')
         .select('id')
-        .eq('boleta', normalizedBoleta)
+        .eq('boleta', trimmedBoleta)
         .eq('materia_id', materiaId)
         .single();
 
@@ -258,15 +276,14 @@ export default function SessionEnrollmentScreen() {
       }
 
       if (existingInscription) {
-        setManualError('Este alumno ya está inscrito en la materia.');
-        setIsSaving(false);
+        setManualFieldError('manualBoleta', 'Este alumno ya esta inscrito en la materia.');
         return;
       }
 
       const { data: existingStudent, error: studentError } = await supabase
         .from('estudiantes')
         .select('boleta')
-        .eq('boleta', normalizedBoleta)
+        .eq('boleta', trimmedBoleta)
         .single();
 
       if (studentError && studentError.code !== 'PGRST116') {
@@ -274,15 +291,17 @@ export default function SessionEnrollmentScreen() {
       }
 
       if (!existingStudent) {
-        setManualError('La boleta no pertenece a un estudiante registrado en Supabase.');
-        setIsSaving(false);
+        setManualFieldError(
+          'manualBoleta',
+          'La boleta no pertenece a un estudiante registrado en Supabase.',
+        );
         return;
       }
 
       const { error } = await supabase
         .from('inscripciones')
         .insert({
-          boleta: normalizedBoleta,
+          boleta: trimmedBoleta,
           materia_id: materiaId,
           estado_inscripcion: 'activa',
           created_by: profesor.id,
@@ -292,16 +311,17 @@ export default function SessionEnrollmentScreen() {
         throw error;
       }
 
-      setFeedback({
+      notify({
         type: 'success',
         title: 'Alumno inscrito',
-        message: `La boleta ${normalizedBoleta} fue inscrita correctamente.`,
+        message: `La boleta ${trimmedBoleta} fue inscrita correctamente.`,
       });
       setManualBoleta('');
     } catch (error: any) {
       console.error('Error adding alumno manual:', error);
-      setManualError(error?.message ?? 'No se pudo inscribir al alumno.');
+      setManualFieldError('manualBoleta', error?.message ?? 'No se pudo inscribir al alumno.');
     } finally {
+      hideLoader();
       setIsSaving(false);
     }
   };
@@ -316,13 +336,15 @@ export default function SessionEnrollmentScreen() {
     </View>
   );
 
+  const manualError = getManualFieldError('manualBoleta');
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name='arrow-back' size={24} color='#111827' />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Añadir alumnos</Text>
+        <Text style={styles.headerTitle}>Anadir alumnos</Text>
       </View>
 
       <View style={styles.tabContainer}>
@@ -340,12 +362,11 @@ export default function SessionEnrollmentScreen() {
         </TouchableOpacity>
       </View>
 
-      {feedback ? <FeedbackBanner {...feedback} /> : null}
-
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {activeTab === 'csv' ? (
           <View style={styles.contentContainer}>
             <Text style={styles.sectionTitle}>Importar alumnos desde CSV</Text>
+
             <View style={styles.instructionsBox}>
               <Text style={styles.instructionsTitle}>Antes de importar:</Text>
               {instructions.map((item) => (
@@ -357,7 +378,11 @@ export default function SessionEnrollmentScreen() {
             </View>
 
             <View style={styles.filePickerContainer}>
-              <TouchableOpacity style={styles.filePickerButton} onPress={handleFilePick} disabled={isSaving}>
+              <TouchableOpacity
+                style={styles.filePickerButton}
+                onPress={handleFilePick}
+                disabled={isSaving}
+              >
                 <Ionicons name='cloud-upload-outline' size={22} color='#2563eb' />
                 <Text style={styles.filePickerButtonText}>Seleccionar archivo CSV</Text>
               </TouchableOpacity>
@@ -369,10 +394,12 @@ export default function SessionEnrollmentScreen() {
                       <Text style={styles.fileClearButton}>Limpiar</Text>
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.fileInfoText}>{newAlumnos.length} boletas listas para inscribir.</Text>
+                  <Text style={styles.fileInfoText}>
+                    {newAlumnos.length} boletas listas para inscribir.
+                  </Text>
                 </View>
               ) : (
-                <Text style={styles.fileEmptyText}>Aún no se selecciona un archivo.</Text>
+                <Text style={styles.fileEmptyText}>Aun no se selecciona un archivo.</Text>
               )}
             </View>
 
@@ -395,7 +422,7 @@ export default function SessionEnrollmentScreen() {
                 <Text style={styles.issueTitle}>Formato incorrecto</Text>
                 <Text style={styles.issueText}>
                   Revisa las siguientes boletas: {invalidBoletas.slice(0, 8).join(', ')}
-                  {invalidBoletas.length > 8 ? '…' : ''}
+                  {invalidBoletas.length > 8 ? '...' : ''}
                 </Text>
               </View>
             ) : null}
@@ -419,15 +446,15 @@ export default function SessionEnrollmentScreen() {
           </View>
         ) : (
           <View style={styles.contentContainer}>
-            <Text style={styles.sectionTitle}>Inscripción manual</Text>
-            <Text style={styles.manualHelper}>Registra una boleta puntual cuando no esté incluida en el CSV.</Text>
+            <Text style={styles.sectionTitle}>Inscripcion manual</Text>
+            <Text style={styles.manualHelper}>Registra una boleta puntual cuando no esta incluida en el CSV.</Text>
             <TextInput
-              style={[styles.input, manualError && styles.inputError]}
+              style={[styles.input, manualError ? styles.inputError : null]}
               placeholder='Boleta del alumno'
               value={manualBoleta}
               onChangeText={(value) => {
                 setManualBoleta(value);
-                if (manualError) setManualError(null);
+                clearManualFieldError('manualBoleta');
               }}
               keyboardType='numeric'
               maxLength={10}
@@ -529,42 +556,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    borderRadius: 12,
     paddingVertical: 12,
-    backgroundColor: '#eff6ff',
-    borderRadius: 10,
-    gap: 8,
   },
   filePickerButtonText: {
     color: '#2563eb',
-    fontSize: 16,
     fontWeight: '600',
+    fontSize: 15,
   },
   fileInfoContainer: {
-    gap: 4,
+    backgroundColor: '#eff6ff',
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
   },
   fileInfoHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   fileNameText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#1f2937',
   },
   fileClearButton: {
     fontSize: 13,
+    color: '#2563eb',
     fontWeight: '600',
-    color: '#ef4444',
   },
   fileInfoText: {
     fontSize: 13,
-    color: '#6b7280',
+    color: '#1d4ed8',
   },
   fileEmptyText: {
     fontSize: 13,
-    color: '#6b7280',
-    textAlign: 'center',
+    color: '#64748b',
   },
   previewContainer: {
     backgroundColor: '#fff',
@@ -573,7 +603,6 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     padding: 16,
     gap: 12,
-    maxHeight: 260,
   },
   previewHeader: {
     flexDirection: 'row',
@@ -581,29 +610,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   previewTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#0f172a',
   },
   previewCount: {
-    fontSize: 14,
-    fontWeight: '700',
+    backgroundColor: '#eff6ff',
     color: '#2563eb',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontWeight: '600',
+    fontSize: 12,
   },
   boletaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
+    alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   boletaText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
     color: '#1f2937',
   },
   removeButton: {
@@ -612,9 +641,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   removeButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
     color: '#ef4444',
+    fontWeight: '600',
+    fontSize: 13,
   },
   issueContainer: {
     backgroundColor: '#fff7ed',
@@ -627,11 +656,11 @@ const styles = StyleSheet.create({
   issueTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#b45309',
+    color: '#9a3412',
   },
   issueText: {
     fontSize: 13,
-    color: '#7c2d12',
+    color: '#c2410c',
   },
   button: {
     backgroundColor: '#2563eb',
@@ -639,37 +668,34 @@ const styles = StyleSheet.create({
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-  buttonDisabled: {
-    opacity: 0.65,
-  },
   manualHelper: {
     fontSize: 14,
-    color: '#4b5563',
-    marginBottom: 12,
+    color: '#475569',
   },
   input: {
     backgroundColor: '#fff',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   inputError: {
     borderColor: '#f87171',
   },
   errorText: {
-    fontSize: 13,
     color: '#b91c1c',
-    marginBottom: 8,
+    fontSize: 12,
+    marginTop: -6,
   },
 });
