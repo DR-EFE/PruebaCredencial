@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,12 +12,180 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAuthStore } from '@/core/auth/useAuthStore';
 
+import { FeedbackBanner, FeedbackBannerProps } from '@/features/session/components/FeedbackBanner';
 import { MateriaPickerModal } from '../components/MateriaPickerModal';
 import { RecentAttendanceList } from '../components/RecentAttendanceList';
 import { ScannerStatus } from '../components/ScannerStatus';
 import { useAttendanceScanner } from '../hooks/useAttendanceScanner';
 import { useAttendanceSession } from '../hooks/useAttendanceSession';
-import { ScanFeedback } from '../types';
+import { AttendanceEntry, ScanFeedback } from '../types';
+
+type ScannerPhase = 'idle' | 'preparing' | 'scanning' | 'offline' | 'error';
+
+const isOfflineError = (error: unknown) => {
+  if (!error) {
+    return false;
+  }
+
+  const candidate =
+    typeof error === 'string'
+      ? error
+      : (error as { message?: string })?.message ?? '';
+  const code = (error as { code?: string })?.code;
+
+  if (code && ['ECONNABORTED', 'ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH'].includes(code)) {
+    return true;
+  }
+
+  return /network|offline|internet|conexion|conection/i.test(candidate ?? '');
+};
+
+const CAMERA_PHASE_DETAILS: Record<
+  ScannerPhase,
+  {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    badgeBackground: string;
+    badgeColor: string;
+    label: string;
+    overlayTitle?: string;
+    overlayDescription?: string;
+  }
+> = {
+  idle: {
+    icon: 'pause-circle',
+    badgeBackground: 'rgba(17,24,39,0.75)',
+    badgeColor: '#f8fafc',
+    label: 'Selecciona materia',
+    overlayTitle: 'Selecciona una materia',
+    overlayDescription: 'Elige una materia para preparar la camara y empezar a escanear.',
+  },
+  preparing: {
+    icon: 'time-outline',
+    badgeBackground: 'rgba(37,99,235,0.85)',
+    badgeColor: '#eff6ff',
+    label: 'Preparando',
+    overlayTitle: 'Preparando escaner',
+    overlayDescription: 'Sincronizando la sesion y activando la camara del dispositivo.',
+  },
+  scanning: {
+    icon: 'scan',
+    badgeBackground: 'rgba(6,182,212,0.85)',
+    badgeColor: '#ecfeff',
+    label: 'Escaneando',
+  },
+  offline: {
+    icon: 'cloud-offline',
+    badgeBackground: 'rgba(248,113,113,0.85)',
+    badgeColor: '#fee2e2',
+    label: 'Sin conexion',
+    overlayTitle: 'Sin conexion a internet',
+    overlayDescription: 'Revisa tu conexion para continuar registrando asistencias.',
+  },
+  error: {
+    icon: 'alert-circle',
+    badgeBackground: 'rgba(249,115,22,0.85)',
+    badgeColor: '#fff7ed',
+    label: 'Error',
+    overlayTitle: 'No se pudo preparar el escaner',
+    overlayDescription: 'Intenta nuevamente o cambia de materia para continuar.',
+  },
+};
+
+interface CameraStateContainerProps {
+  children: ReactNode;
+  phase: ScannerPhase;
+  onRetry: () => void;
+}
+
+const CameraStateContainer = ({ children, phase, onRetry }: CameraStateContainerProps) => {
+  const details = CAMERA_PHASE_DETAILS[phase];
+  const showBlockingOverlay = Boolean(details.overlayTitle);
+  const showRetry = phase === 'offline' || phase === 'error';
+
+  return (
+    <View style={styles.cameraContainer}>
+      {children}
+      <View
+        style={[
+          styles.cameraBadge,
+          {
+            backgroundColor: details.badgeBackground,
+          },
+        ]}
+      >
+        <Ionicons
+          name={details.icon}
+          size={16}
+          color={details.badgeColor}
+          style={styles.cameraBadgeIcon}
+        />
+        <Text
+          style={[
+            styles.cameraBadgeText,
+            {
+              color: details.badgeColor,
+            },
+          ]}
+        >
+          {details.label}
+        </Text>
+      </View>
+
+      {showBlockingOverlay ? (
+        <View style={styles.cameraBlockingOverlay}>
+          <View style={styles.cameraBlockingCard}>
+            <Ionicons
+              name={details.icon}
+              size={32}
+              color={details.badgeBackground}
+              style={styles.cameraBlockingIcon}
+            />
+            <Text style={styles.cameraBlockingTitle}>{details.overlayTitle}</Text>
+            {details.overlayDescription ? (
+              <Text style={styles.cameraBlockingSubtitle}>{details.overlayDescription}</Text>
+            ) : null}
+            {showRetry ? (
+              <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+                <Text style={styles.retryButtonText}>Reintentar</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+};
+
+interface ValidationStatusSectionProps {
+  banner: FeedbackBannerProps | null;
+  status: ScanFeedback;
+  processing: boolean;
+}
+
+const ValidationStatusSection = ({ banner, status, processing }: ValidationStatusSectionProps) => (
+  <View style={styles.validationSection}>
+    {banner ? <FeedbackBanner {...banner} /> : null}
+    <ScannerStatus status={status} processing={processing} />
+  </View>
+);
+
+interface ConfirmationListSectionProps {
+  recentAttendance: AttendanceEntry[];
+}
+
+const ConfirmationListSection = ({ recentAttendance }: ConfirmationListSectionProps) => (
+  <View>
+    <View style={styles.attendanceHeader}>
+      <Text style={styles.attendanceTitle}>Pase de lista</Text>
+      <View style={styles.attendanceCountBadge}>
+        <Ionicons name='people' size={14} color='#2563eb' />
+        <Text style={styles.attendanceCountText}>{recentAttendance.length}</Text>
+      </View>
+    </View>
+
+    <RecentAttendanceList items={recentAttendance} />
+  </View>
+);
 
 export default function EscanearScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -49,6 +216,16 @@ export default function EscanearScreen() {
   } = useAttendanceScanner({ sesionActiva, profesor });
 
   const canScan = Boolean(sesionActiva) && !loadingSesion;
+  const [scannerPhase, setScannerPhase] = useState<ScannerPhase>('idle');
+  const [sessionBanner, setSessionBanner] = useState<FeedbackBannerProps | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -56,38 +233,89 @@ export default function EscanearScreen() {
     }, [reloadMaterias])
   );
 
-  useEffect(() => {
+  const prepareScannerSession = useCallback(async () => {
     if (!selectedMateria) {
+      setScannerPhase('idle');
+      setSessionBanner(null);
       setScanning(false);
       return;
     }
 
-    let isMounted = true;
-    const prepareSession = async () => {
-      try {
-        const { changed } = await ensureSesion(selectedMateria);
-        if (!isMounted) return;
+    setScannerPhase('preparing');
+    setSessionBanner({
+      type: 'info',
+      title: 'Preparando escaner',
+      message: 'Sincronizando la sesion y habilitando la camara.',
+    });
 
-        setScanning(true);
-        if (changed) {
-          clearFeedback();
-        }
-      } catch (err) {
-        if (!isMounted) return;
-        console.error('Error ensuring session for scanner:', err);
-        Alert.alert('Error', 'No se pudo preparar la sesión para escanear');
-        setScanning(false);
+    try {
+      const { changed } = await ensureSesion(selectedMateria);
+      if (!isMountedRef.current) {
+        return;
       }
-    };
 
-    prepareSession();
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedMateria, ensureSesion, setScanning, clearFeedback]);
+      setSessionBanner(null);
+      setScannerPhase('scanning');
+      setScanning(true);
+
+      if (changed) {
+        clearFeedback();
+      }
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      console.error('Error ensuring session for scanner:', error);
+      const offline = isOfflineError(error);
+
+      setScannerPhase(offline ? 'offline' : 'error');
+      setSessionBanner({
+        type: offline ? 'warning' : 'error',
+        title: offline ? 'Sin conexion a internet' : 'No se pudo preparar el escaner',
+        message: offline
+          ? 'Revisa tu conexion y vuelve a intentar preparar la sesion.'
+          : 'Ocurrio un problema al iniciar la sesion de asistencia. Intenta nuevamente.',
+      });
+      setScanning(false);
+    }
+  }, [selectedMateria, ensureSesion, setScanning, clearFeedback, setSessionBanner, setScannerPhase]);
+
+  useEffect(() => {
+    prepareScannerSession();
+  }, [prepareScannerSession]);
+
+  const handleRetryPreparation = useCallback(() => {
+    prepareScannerSession();
+  }, [prepareScannerSession]);
+
 
   const defaultStatus: ScanFeedback = useMemo(() => {
-    if (!canScan) {
+    if (scannerPhase === 'offline') {
+      return {
+        type: 'error',
+        title: 'Sin conexion',
+        message: 'Revisa tu conexion a internet para continuar con el pase de lista.',
+      };
+    }
+
+    if (scannerPhase === 'error') {
+      return {
+        type: 'error',
+        title: 'No se pudo preparar el escaner',
+        message: 'Intenta nuevamente para reanudar el registro de asistencias.',
+      };
+    }
+
+    if (scannerPhase === 'preparing') {
+      return {
+        type: 'info',
+        title: 'Preparando escaner',
+        message: 'Sincronizando la sesion y habilitando la camara.',
+      };
+    }
+
+    if (!canScan || scannerPhase === 'idle') {
       return {
         type: 'warning',
         title: 'Selecciona una materia',
@@ -98,17 +326,18 @@ export default function EscanearScreen() {
     if (processing) {
       return {
         type: 'info',
-        title: 'Procesando...',
-        message: 'Validando credencial del estudiante.',
+        title: 'Procesando credencial',
+        message: 'Validando codigo QR y sincronizando al estudiante.',
       };
     }
 
     return {
       type: 'info',
-      title: 'Listo para escanear',
-      message: 'Coloca el código QR dentro del marco.',
+      title: 'Escaneando',
+      message: 'Coloca el codigo QR dentro del marco.',
     };
-  }, [processing, canScan]);
+  }, [scannerPhase, processing, canScan]);
+
 
   const activeStatus = feedback ?? defaultStatus;
 
@@ -191,6 +420,9 @@ export default function EscanearScreen() {
             onPress={() => {
               stopProcessing();
               setScanning(false);
+              clearFeedback();
+              setScannerPhase('idle');
+              setSessionBanner(null);
               setPickerVisible(true);
             }}
           >
@@ -205,7 +437,7 @@ export default function EscanearScreen() {
         ) : null}
       </View>
 
-      <View style={styles.cameraContainer}>
+      <CameraStateContainer phase={scannerPhase} onRetry={handleRetryPreparation}>
         <CameraView
           style={styles.camera}
           facing='back'
@@ -221,20 +453,15 @@ export default function EscanearScreen() {
             </View>
           </View>
         </CameraView>
-      </View>
+      </CameraStateContainer>
 
       <View style={styles.bottomPanel}>
-        <ScannerStatus status={activeStatus} processing={processing} />
-
-        <View style={styles.attendanceHeader}>
-          <Text style={styles.attendanceTitle}>Pase de lista</Text>
-          <View style={styles.attendanceCountBadge}>
-            <Ionicons name='people' size={14} color='#2563eb' />
-            <Text style={styles.attendanceCountText}>{recentAttendance.length}</Text>
-          </View>
-        </View>
-
-        <RecentAttendanceList items={recentAttendance} />
+        <ValidationStatusSection
+          banner={sessionBanner}
+          status={activeStatus}
+          processing={processing}
+        />
+        <ConfirmationListSection recentAttendance={recentAttendance} />
       </View>
 
       <MateriaPickerModal
@@ -244,7 +471,17 @@ export default function EscanearScreen() {
         onSelect={(id) => {
           stopProcessing();
           setScanning(false);
+          clearFeedback();
+          setScannerPhase('preparing');
+          setSessionBanner({
+            type: 'info',
+            title: 'Preparando escaner',
+            message: 'Sincronizando la sesion y habilitando la camara.',
+          });
           setSelectedMateriaId(id);
+          if (selectedMateria?.id === id) {
+            prepareScannerSession();
+          }
           setPickerVisible(false);
         }}
         onClose={() => setPickerVisible(false)}
@@ -357,9 +594,70 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     backgroundColor: '#000',
+    position: 'relative',
   },
   camera: {
     flex: 1,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  cameraBadgeIcon: {
+    marginRight: 6,
+  },
+  cameraBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cameraBlockingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15,23,42,0.82)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  cameraBlockingCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  cameraBlockingIcon: {
+    marginBottom: 16,
+  },
+  cameraBlockingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  cameraBlockingSubtitle: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   overlay: {
     flex: 1,
@@ -405,6 +703,9 @@ const styles = StyleSheet.create({
     right: -2,
     borderLeftWidth: 0,
     borderTopWidth: 0,
+  },
+  validationSection: {
+    marginBottom: 20,
   },
   bottomPanel: {
     backgroundColor: '#fff',
