@@ -165,7 +165,7 @@ export default function LoginScreen() {
           {getError('password') ? <Text style={styles.errorText}>{getError('password')}</Text> : null}
 
           <TouchableOpacity style={styles.forgotPassword} onPress={handleResetPassword} disabled={loading}>
-            <Text style={styles.forgotPasswordText}>��Olvidaste tu contrasena?</Text>
+            <Text style={styles.forgotPasswordText}>Olvidaste tu contrasena?</Text>
           </TouchableOpacity>
           {getError('reset') ? <Text style={styles.errorText}>{getError('reset')}</Text> : null}
 
@@ -182,7 +182,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.registerPrompt}>
-            <Text style={styles.registerText}>��No tienes cuenta?</Text>
+            <Text style={styles.registerText}>No tienes cuenta?</Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register')} disabled={loading}>
               <Text style={styles.registerLink}>Registrate</Text>
             </TouchableOpacity>

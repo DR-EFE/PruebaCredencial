@@ -169,23 +169,7 @@ const ValidationStatusSection = ({ banner, status, processing }: ValidationStatu
   </View>
 );
 
-interface ConfirmationListSectionProps {
-  recentAttendance: AttendanceEntry[];
-}
 
-const ConfirmationListSection = ({ recentAttendance }: ConfirmationListSectionProps) => (
-  <View>
-    <View style={styles.attendanceHeader}>
-      <Text style={styles.attendanceTitle}>Pase de lista</Text>
-      <View style={styles.attendanceCountBadge}>
-        <Ionicons name='people' size={14} color='#2563eb' />
-        <Text style={styles.attendanceCountText}>{recentAttendance.length}</Text>
-      </View>
-    </View>
-
-    <RecentAttendanceList items={recentAttendance} />
-  </View>
-);
 
 export default function EscanearScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -437,31 +421,44 @@ export default function EscanearScreen() {
         ) : null}
       </View>
 
-      <CameraStateContainer phase={scannerPhase} onRetry={handleRetryPreparation}>
-        <CameraView
-          style={styles.camera}
-          facing='back'
-          onBarcodeScanned={canScan && scanning ? handleBarCodeScanned : undefined}
-          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        >
-          <View style={styles.overlay}>
-            <View style={styles.scanArea}>
-              <View style={[styles.corner, styles.topLeft]} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
+      <View style={{ flex: 3, backgroundColor: 'black' }}>
+        <CameraStateContainer phase={scannerPhase} onRetry={handleRetryPreparation}>
+          <CameraView
+            style={styles.camera}
+            facing='back'
+            onBarcodeScanned={canScan && scanning ? handleBarCodeScanned : undefined}
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          >
+            <View style={styles.overlay}>
+              <View style={styles.scanArea}>
+                <View style={[styles.corner, styles.topLeft]} />
+                <View style={[styles.corner, styles.topRight]} />
+                <View style={[styles.corner, styles.bottomLeft]} />
+                <View style={[styles.corner, styles.bottomRight]} />
+              </View>
             </View>
-          </View>
-        </CameraView>
-      </CameraStateContainer>
+          </CameraView>
+        </CameraStateContainer>
+      </View>
 
       <View style={styles.bottomPanel}>
-        <ValidationStatusSection
-          banner={sessionBanner}
-          status={activeStatus}
-          processing={processing}
-        />
-        <ConfirmationListSection recentAttendance={recentAttendance} />
+        <View style={styles.bottomPanelContent}>
+          <ValidationStatusSection
+            banner={sessionBanner}
+            status={activeStatus}
+            processing={processing}
+          />
+          <View style={styles.attendanceHeader}>
+            <Text style={styles.attendanceTitle}>Pase de lista</Text>
+            <View style={styles.attendanceCountBadge}>
+              <Ionicons name='people' size={14} color='#2563eb' />
+              <Text style={styles.attendanceCountText}>{recentAttendance.length}</Text>
+            </View>
+          </View>
+          <View style={styles.listContainer}>
+            <RecentAttendanceList items={recentAttendance} />
+          </View>
+        </View>
       </View>
 
       <MateriaPickerModal
@@ -705,11 +702,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
   },
   validationSection: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   bottomPanel: {
+    flex: 2,
+    flexShrink: 0,
     backgroundColor: '#fff',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     shadowColor: '#000',
@@ -717,6 +717,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 6,
+  },
+  bottomPanelContent: {
+    flex: 1,
+  },
+  listContainer: {
+    flex: 1,
+    minHeight: 200,
   },
   attendanceHeader: {
     flexDirection: 'row',
@@ -744,3 +751,4 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
 });
+

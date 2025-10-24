@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import * as Crypto from 'expo-crypto';
 
@@ -23,11 +23,28 @@ interface BarCodeEventPayload {
   data: string;
 }
 
+type EstudianteRow = {
+  boleta: string;
+  nombre?: string | null;
+  apellido?: string | null;
+  carrera?: string | null;
+  escuela?: string | null;
+  hash_verificacion?: string | null;
+  original_url?: string | null;
+};
+
+const buildFallbackCurp = (boleta: string) => {
+  const numericBoleta = boleta.replace(/\D/g, '');
+  const base = `SNV${numericBoleta}CURP`;
+  const padded = (base + 'X'.repeat(18)).slice(0, 18);
+  return padded.toUpperCase();
+};
+
 const computeHash = async (payload: string) => {
   try {
     return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, payload);
   } catch (error) {
-    console.warn('No se pudo generar hash de verificación', error);
+    console.warn('No se pudo generar hash de verificaciÃ³n', error);
     return '';
   }
 };
@@ -84,7 +101,7 @@ export const useAttendanceScanner = ({
       setFeedback({
         type: 'info',
         title: 'Procesando credencial...',
-        message: 'Validando código QR y sincronizando datos del estudiante.',
+        message: 'Validando QR y datos del alumno.',
       });
 
       try {
@@ -105,7 +122,7 @@ export const useAttendanceScanner = ({
             setFeedback({
               type: 'error',
               title: 'URL no permitida',
-              message: 'Usa una credencial institucional válida emitida por el IPN.',
+              message: 'Usa una credencial institucional vÃ¡lida emitida por el IPN.',
             });
             resumeScanning(900);
             return;
@@ -126,8 +143,8 @@ export const useAttendanceScanner = ({
         if (!scannedBoleta || !/^\d{10}$/.test(scannedBoleta)) {
           setFeedback({
             type: 'error',
-            title: 'Código inválido',
-            message: 'No se detectó una boleta válida dentro del código QR.',
+            title: 'CÃ³digo invÃ¡lido',
+            message: 'No se detectÃ³ una boleta vÃ¡lida dentro del cÃ³digo QR.',
           });
           resumeScanning(900);
           return;
@@ -136,24 +153,160 @@ export const useAttendanceScanner = ({
         if (!sesionActiva) {
           setFeedback({
             type: 'warning',
-            title: 'Sesión no disponible',
+            title: 'SesiÃ³n no disponible',
             message: 'Selecciona una materia para continuar con el pase de lista.',
           });
           resumeScanning(900);
           return;
         }
 
-        const { data: estudiante, error: estudianteError } = await supabase
+        const updateMessages: string[] = [];
+
+        const { data: estudianteData, error: estudianteError } = await supabase
           .from('estudiantes')
           .select('*')
           .eq('boleta', scannedBoleta)
           .single();
 
-        if (estudianteError || !estudiante) {
+        let estudiante: EstudianteRow | null = (estudianteData as EstudianteRow | null) ?? null;
+
+        console.log('[Scanner] Resultado consulta estudiante', {
+          boleta: scannedBoleta,
+          estudianteEncontrado: Boolean(estudiante),
+          errorCode: estudianteError?.code,
+          tieneScrapedProfile: Boolean(scrapedProfile),
+        });
+
+        if (estudianteError && estudianteError.code !== 'PGRST116') {
+          setFeedback({
+            type: 'error',
+            title: 'No se pudo consultar al estudiante',
+            message: 'Ocurrio un error al validar la boleta. Intenta nuevamente.',
+          });
+          resumeScanning(1500);
+          return;
+        }
+
+        if (!estudiante) {
+          const { nombres, apellidos } = scrapedProfile
+            ? splitNombre(scrapedProfile.nombreCompleto)
+            : { nombres: '', apellidos: '' };
+
+          const basePayload: Record<string, any> = {
+            boleta: scannedBoleta,
+            nombre: nombres || scrapedProfile?.nombreCompleto || `Alumno ${scannedBoleta}`,
+          };
+
+          const optionalFields: Record<string, any> = {
+            apellido: apellidos,
+            carrera: scrapedProfile?.carrera,
+            escuela: scrapedProfile?.escuela,
+            curp: buildFallbackCurp(scannedBoleta),
+            turno: 'Sin verificar',
+            hash_verificacion: verificationHash,
+            original_url: parsedUrl?.toString(),
+            created_by: profesor?.id,
+          };
+
+          const nuevoEstudiantePayload: Record<string, any> = { ...basePayload };
+
+          Object.entries(optionalFields).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              nuevoEstudiantePayload[key] = value;
+            }
+          });
+
+          console.log('[Scanner] Creando nuevo estudiante', {
+            boleta: scannedBoleta,
+            payload: nuevoEstudiantePayload,
+          });
+
+          let insertPayload = { ...nuevoEstudiantePayload };
+          const columnasRemovidas: string[] = [];
+          const camposAjustados: string[] = [];
+          let nuevoEstudiante: EstudianteRow | null = null;
+
+          while (true) {
+            const { data, error } = await supabase
+              .from('estudiantes')
+              .insert(insertPayload)
+              .select('*')
+              .single();
+
+            if (!error && data) {
+              nuevoEstudiante = data as EstudianteRow;
+              if (columnasRemovidas.length > 0) {
+                console.warn('[Scanner] Estudiante creado omitiendo columnas inexistentes', {
+                  boleta: scannedBoleta,
+                  columnasRemovidas,
+                });
+              }
+              if (camposAjustados.length > 0) {
+                console.warn('[Scanner] Estudiante creado con ajustes forzados', {
+                  boleta: scannedBoleta,
+                  camposAjustados,
+                });
+              }
+              break;
+            }
+
+            if (error?.code === 'PGRST204') {
+              const columnaNoEncontrada =
+                error.message?.match(/'([^']+)' column/)?.[1] ?? null;
+
+              if (columnaNoEncontrada && columnaNoEncontrada in insertPayload) {
+                columnasRemovidas.push(columnaNoEncontrada);
+                console.warn('[Scanner] Columna no encontrada al crear estudiante, reintentando', {
+                  boleta: scannedBoleta,
+                  columnaNoEncontrada,
+                });
+                delete insertPayload[columnaNoEncontrada];
+                continue;
+              }
+            }
+
+            if (error?.code === 'PGRST116' || error?.message?.includes('turno')) {
+              if (insertPayload.turno && insertPayload.turno !== 'Matutino' && insertPayload.turno !== 'Vespertino') {
+                insertPayload.turno = 'Matutino';
+                camposAjustados.push('turno');
+                console.warn('[Scanner] Turno no valido, se asigna Matutino por defecto', {
+                  boleta: scannedBoleta,
+                });
+                continue;
+              }
+            }
+
+            console.error('[Scanner] Error insertando estudiante', {
+              boleta: scannedBoleta,
+              payload: insertPayload,
+              columnasRemovidas,
+              camposAjustados,
+              error,
+            });
+            setFeedback({
+              type: 'error',
+              title: 'No se pudo registrar al estudiante',
+              message: `Hubo un problema al registrar la boleta ${scannedBoleta}.`,
+            });
+            resumeScanning(1500);
+            return;
+          }
+
+          estudiante = nuevoEstudiante;
+          updateMessages.push('Estudiante agregado al padron');
+          if (camposAjustados.includes('turno')) {
+            updateMessages.push('Turno pendiente de verificacion');
+          }
+          console.log('[Scanner] Estudiante creado correctamente', {
+            boleta: scannedBoleta,
+          });
+        }
+
+        if (!estudiante) {
           setFeedback({
             type: 'error',
             title: 'Estudiante no encontrado',
-            message: `La boleta ${scannedBoleta} no está registrada en la base de datos.`,
+            message: `La boleta ${scannedBoleta} no esta registrada en la base de datos.`,
           });
           resumeScanning(1100);
           return;
@@ -168,8 +321,6 @@ export const useAttendanceScanner = ({
           resumeScanning(1100);
           return;
         }
-
-        let updateSummary: string | null = null;
 
         if (scrapedProfile) {
           const updates: Record<string, any> = {};
@@ -234,55 +385,109 @@ export const useAttendanceScanner = ({
               throw updateError;
             }
 
-            updateSummary =
+            updateMessages.push(
               updatedFields.length > 0
                 ? `Datos sincronizados (${updatedFields.join(', ')})`
-                : 'Datos sincronizados';
+                : 'Datos sincronizados'
+            );
           }
         }
 
-        const { error: inscripcionError } = await supabase
+        console.log('[Scanner] Verificando inscripcion', {
+          boleta: scannedBoleta,
+          materiaId: sesionActiva.materia_id,
+        });
+
+        const { data: inscripcion, error: inscripcionError } = await supabase
           .from('inscripciones')
-          .select('id')
+          .select('id, estado_inscripcion, fecha_baja')
           .eq('boleta', scannedBoleta)
           .eq('materia_id', sesionActiva.materia_id)
-          .eq('estado_inscripcion', 'activa')
-          .single();
+          .maybeSingle();
 
-        if (inscripcionError && inscripcionError.code === 'PGRST116') {
-          const { error: insertError } = await supabase
-            .from('inscripciones')
-            .insert({
+        if (inscripcionError) {
+          console.error('[Scanner] Error consultando inscripcion', {
+            boleta: scannedBoleta,
+            materiaId: sesionActiva.materia_id,
+            errorCode: inscripcionError.code,
+            errorMessage: inscripcionError.message,
+          });
+          setFeedback({
+            type: 'error',
+            title: 'Error de InscripciÃ³n',
+            message: 'OcurriÃ³ un error al verificar la inscripciÃ³n del alumno.',
+          });
+          resumeScanning(1100);
+          return;
+        }
+
+        const nombreReferencia =
+          `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.trim() ||
+          scrapedProfile?.nombreCompleto ||
+          scannedBoleta;
+
+        if (inscripcion) {
+          if (inscripcion.estado_inscripcion === 'baja' || inscripcion.fecha_baja) {
+            console.warn('[Scanner] Intento de registro para alumno dado de baja', {
               boleta: scannedBoleta,
-              materia_id: sesionActiva.materia_id,
-              created_by: profesor?.id,
-            })
-            .select('id')
-            .single();
-
-          if (insertError) {
+              materiaId: sesionActiva.materia_id,
+            });
             setFeedback({
               type: 'error',
-              title: 'Error de inscripción',
-              message: `No se pudo inscribir a ${estudiante.nombre} en la materia.`,
+              title: 'Alumno dado de baja',
+              message: `${nombreReferencia} ya no estÃ¡ inscrito en esta materia.`,
             });
             resumeScanning(1500);
             return;
           }
+        } else {
+          console.log('[Scanner] Inscripcion no encontrada, creando registro', {
+            boleta: scannedBoleta,
+            materiaId: sesionActiva.materia_id,
+          });
 
-          setFeedback({
-            type: 'success',
-            title: 'Inscripción exitosa',
-            message: `${estudiante.nombre} ${estudiante.apellido} ha sido inscrito en esta materia.`,
-          });
-        } else if (inscripcionError) {
-          setFeedback({
-            type: 'error',
-            title: 'Error de inscripción',
-            message: 'Ocurrió un error al verificar la inscripción.',
-          });
-          resumeScanning(1100);
-          return;
+          try {
+            const { error: insertError } = await supabase.from('inscripciones').insert({
+              boleta: scannedBoleta,
+              materia_id: sesionActiva.materia_id,
+              estado_inscripcion: 'activa',
+              created_by: profesor?.id,
+            });
+
+            if (insertError) {
+              throw insertError;
+            }
+
+            updateMessages.push('Inscripción creada automáticamente');
+            console.log('[Scanner] Inscripcion creada correctamente', {
+              boleta: scannedBoleta,
+              materiaId: sesionActiva.materia_id,
+            });
+          } catch (insertError: any) {
+            const isDuplicate = insertError?.code === '23505';
+            const logPayload = {
+              boleta: scannedBoleta,
+              materiaId: sesionActiva.materia_id,
+              errorCode: insertError?.code,
+              errorMessage: insertError?.message,
+            };
+
+            if (isDuplicate) {
+              console.warn('[Scanner] Inscripcion duplicada detectada', logPayload);
+            } else {
+              console.error('[Scanner] Error insertando inscripcion', logPayload);
+            }
+
+            setFeedback({
+              type: 'error',
+              title: isDuplicate ? 'Alumno dado de baja' : 'Error de Inscripción',
+              message: isDuplicate
+                ? `${nombreReferencia} tiene una inscripci?n inactiva. Reinscr?belo antes de pasar lista.`
+                : `No se pudo inscribir a ${nombreReferencia} en la materia.`,
+            });
+            resumeScanning(1500);
+            return;
+          }
         }
 
         const { data: asistenciaExistente } = await supabase
@@ -293,10 +498,20 @@ export const useAttendanceScanner = ({
           .single();
 
         if (asistenciaExistente) {
+          const nombreDuplicado =
+            `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.trim() ||
+            scrapedProfile?.nombreCompleto ||
+            scannedBoleta;
+
+          console.log('[Scanner] Asistencia duplicada detectada', {
+            boleta: scannedBoleta,
+            sesionId: sesionActiva.id,
+          });
+
           setFeedback({
             type: 'warning',
             title: 'Registro duplicado',
-            message: `${estudiante.nombre} ${estudiante.apellido} ya tiene asistencia registrada en esta sesión.`,
+            message: `${nombreDuplicado} ya tiene asistencia registrada en esta sesion.`,
           });
           resumeScanning(1100);
           return;
@@ -321,7 +536,7 @@ export const useAttendanceScanner = ({
           setFeedback({
             type: 'error',
             title: 'Clase no iniciada o terminada',
-            message: `No se puede registrar, la clase de ${duracionClase} min ya finalizó o no ha empezado.`,
+            message: `No se puede registrar, la clase de ${duracionClase} min ya finalizÃ³ o no ha empezado.`,
           });
           resumeScanning(1500);
           return;
@@ -346,8 +561,17 @@ export const useAttendanceScanner = ({
         });
 
         if (asistenciaError) {
+          console.error('[Scanner] Error insertando asistencia', {
+            boleta: scannedBoleta,
+            sesionId: sesionActiva.id,
+            errorCode: asistenciaError.code,
+            errorMessage: asistenciaError.message,
+          });
           throw asistenciaError;
         }
+
+        const updateSummary =
+          updateMessages.length > 0 ? updateMessages.join(' Â· ') : null;
 
         const nombreCompletoDb =
           `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.trim() ||
@@ -369,7 +593,7 @@ export const useAttendanceScanner = ({
         const baseMessage =
           estado === 'presente'
             ? `${nombreCompletoDb} registrado como presente.`
-            : `${nombreCompletoDb} llegó con ${minutosTardanza} minutos de tardanza.`;
+            : `${nombreCompletoDb} llegÃ³ con ${minutosTardanza} minutos de tardanza.`;
 
         const detailMessage = updateSummary ? `${baseMessage}\n${updateSummary}` : baseMessage;
 
@@ -379,12 +603,24 @@ export const useAttendanceScanner = ({
           message: detailMessage,
         });
 
+        console.log('[Scanner] Asistencia registrada', {
+          boleta: scannedBoleta,
+          sesionId: sesionActiva.id,
+          estado,
+          minutosTardanza,
+          mensajes: updateMessages,
+        });
+
         resumeScanning(estado === 'presente' ? 800 : 1300);
       } catch (error: any) {
+        console.error('[Scanner] Excepcion durante el escaneo', {
+          boleta: scannedBoleta,
+          error,
+        });
         setFeedback({
           type: 'error',
           title: 'Error al registrar asistencia',
-          message: error?.message ?? 'No se pudo registrar la asistencia. Inténtalo de nuevo.',
+          message: error?.message ?? 'No se pudo registrar la asistencia. Intentalo de nuevo.',
         });
         resumeScanning(1500);
       }
@@ -408,3 +644,4 @@ export const useAttendanceScanner = ({
     handleBarCodeScanned,
   };
 };
+

@@ -45,7 +45,9 @@ export const FeedbackBanner = ({ type, title, message }: FeedbackBannerProps) =>
       <Ionicons name={variant.icon.name} size={20} color={variant.icon.color} style={styles.icon} />
       <View style={styles.texts}>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.message}>{message}</Text>
+        <Text style={styles.message} numberOfLines={2} ellipsizeMode="tail">
+          {message}
+        </Text>
       </View>
     </View>
   );

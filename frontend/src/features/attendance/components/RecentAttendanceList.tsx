@@ -10,6 +10,9 @@ interface RecentAttendanceListProps {
   emptyMessage?: string;
 }
 
+const CARD_MIN_HEIGHT = 120;
+const CARD_SPACING = 12;
+
 const renderItem = ({ item }: { item: AttendanceEntry }) => {
   const isLate = item.estado === 'tardanza';
   return (
@@ -60,11 +63,20 @@ export const RecentAttendanceList = ({
       data={items}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
+      style={styles.list}
+      contentContainerStyle={styles.listContent}
+      showsVerticalScrollIndicator
     />
   );
 };
 
 const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingBottom: 12,
+  },
   emptyContainer: {
     paddingVertical: 16,
   },
@@ -77,9 +89,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderRadius: 14,
     padding: 14,
-    marginBottom: 10,
+    marginBottom: CARD_SPACING,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    minHeight: CARD_MIN_HEIGHT,
   },
   row: {
     flexDirection: 'row',
@@ -135,3 +148,4 @@ const styles = StyleSheet.create({
 });
 
 export default RecentAttendanceList;
+
