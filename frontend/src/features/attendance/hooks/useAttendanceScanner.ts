@@ -400,7 +400,7 @@ export const useAttendanceScanner = ({
 
         const { data: inscripcion, error: inscripcionError } = await supabase
           .from('inscripciones')
-          .select('id, estado_inscripcion, fecha_baja')
+          .select('id, estado_inscripcion')
           .eq('boleta', scannedBoleta)
           .eq('materia_id', sesionActiva.materia_id)
           .maybeSingle();
@@ -427,7 +427,7 @@ export const useAttendanceScanner = ({
           scannedBoleta;
 
         if (inscripcion) {
-          if (inscripcion.estado_inscripcion === 'baja' || inscripcion.fecha_baja) {
+          if (inscripcion.estado_inscripcion === 'baja') {
             console.warn('[Scanner] Intento de registro para alumno dado de baja', {
               boleta: scannedBoleta,
               materiaId: sesionActiva.materia_id,

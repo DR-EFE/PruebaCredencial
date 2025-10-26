@@ -421,7 +421,7 @@ export default function EscanearScreen() {
         ) : null}
       </View>
 
-      <View style={{ flex: 3, backgroundColor: 'black' }}>
+      <View style={styles.cameraSection}>
         <CameraStateContainer phase={scannerPhase} onRetry={handleRetryPreparation}>
           <CameraView
             style={styles.camera}
@@ -704,12 +704,20 @@ const styles = StyleSheet.create({
   validationSection: {
     marginBottom: 12,
   },
-  bottomPanel: {
-    flex: 2,
+  cameraSection: {
+    flexGrow: 1,
     flexShrink: 0,
+    minHeight: 260,
+    backgroundColor: '#000',
+  },
+  bottomPanel: {
+    flexGrow: 1,
+    flexShrink: 0,
+    minHeight: 320,
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: 24,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     shadowColor: '#000',
