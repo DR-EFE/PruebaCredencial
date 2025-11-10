@@ -11,6 +11,7 @@ import {
 
 // Importación del tipo 'Materia' desde un archivo de tipos.
 import { Materia } from '../types';
+import { UPIICSA_COLORS } from '../theme';
 
 // Definición de las propiedades (props) que espera el componente MateriaPickerModal.
 interface MateriaPickerModalProps {
@@ -117,8 +118,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   itemActive: {
-    borderColor: '#800831',
-    backgroundColor: '#800831',
+    borderColor: UPIICSA_COLORS.green,
+    backgroundColor: 'rgba(11,110,79,0.08)',
   },
   itemText: {
     fontSize: 16,
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   itemTextActive: {
-    color: '#800831',
+    color: UPIICSA_COLORS.green,
   },
   itemSub: {
     fontSize: 12,
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#800831',
+    backgroundColor: UPIICSA_COLORS.green,
     alignItems: 'center',
   },
   closeText: {

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
 import { AttendanceEntry } from '../types';
+import { UPIICSA_COLORS } from '../theme';
 
 interface RecentAttendanceListProps {
   items: AttendanceEntry[];
@@ -21,7 +22,7 @@ const renderItem = ({ item }: { item: AttendanceEntry }) => {
         <Ionicons
           name={isLate ? 'time' : 'checkmark-circle'}
           size={20}
-          color={isLate ? '#f59e0b' : '#16a34a'}
+          color={isLate ? UPIICSA_COLORS.yellow : UPIICSA_COLORS.green}
           style={styles.icon}
         />
         <View style={styles.studentInfo}>
@@ -121,10 +122,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   badgePresent: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: 'rgba(11,110,79,0.12)',
   },
   badgeLate: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: 'rgba(245,179,1,0.18)',
   },
   badgeText: {
     fontSize: 12,
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
   },
   update: {
     fontSize: 12,
-    color: '#800831',
+    color: UPIICSA_COLORS.green,
     marginTop: 4,
   },
 });

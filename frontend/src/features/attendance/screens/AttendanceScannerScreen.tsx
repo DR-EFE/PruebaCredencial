@@ -19,8 +19,16 @@ import { ScannerStatus } from '../components/ScannerStatus';
 import { useAttendanceScanner } from '../hooks/useAttendanceScanner';
 import { useAttendanceSession } from '../hooks/useAttendanceSession';
 import { AttendanceEntry, ScanFeedback } from '../types';
+import { UPIICSA_COLORS } from '../theme';
 
 type ScannerPhase = 'idle' | 'preparing' | 'scanning' | 'offline' | 'error';
+
+const {
+  green: UPIICSA_GREEN,
+  greenDark: UPIICSA_GREEN_DARK,
+  yellow: UPIICSA_YELLOW,
+  yellowLight: UPIICSA_YELLOW_LIGHT,
+} = UPIICSA_COLORS;
 
 const isOfflineError = (error: unknown) => {
   if (!error) {
@@ -61,16 +69,16 @@ const CAMERA_PHASE_DETAILS: Record<
   },
   preparing: {
     icon: 'time-outline',
-    badgeBackground: 'rgba(37,99,235,0.85)',
-    badgeColor: '#800831',
+    badgeBackground: 'rgba(11,110,79,0.85)',
+    badgeColor: UPIICSA_YELLOW_LIGHT,
     label: 'Preparando',
     overlayTitle: 'Preparando escaner',
     overlayDescription: 'Sincronizando la sesion y activando la camara del dispositivo.',
   },
   scanning: {
     icon: 'scan',
-    badgeBackground: 'rgba(6,182,212,0.85)',
-    badgeColor: '#ecfeff',
+    badgeBackground: 'rgba(245,179,1,0.9)',
+    badgeColor: UPIICSA_GREEN_DARK,
     label: 'Escaneando',
   },
   offline: {
@@ -348,7 +356,7 @@ export default function EscanearScreen() {
   if (!permission) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#800831" />
+        <ActivityIndicator size="large" color={UPIICSA_GREEN} />
       </View>
     );
   }
@@ -374,7 +382,7 @@ export default function EscanearScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.noSessionContainer}>
-          <ActivityIndicator size="large" color="#800831" />
+          <ActivityIndicator size="large" color={UPIICSA_GREEN} />
           <Text style={styles.noSessionTitle}>Cargando materias</Text>
         </View>
       </View>
@@ -435,7 +443,7 @@ export default function EscanearScreen() {
         </View>
         {loadingSesion ? (
           <View style={styles.sessionLoading}>
-            <ActivityIndicator size="small" color="#800831" />
+            <ActivityIndicator size="small" color={UPIICSA_GREEN} />
             <Text style={styles.sessionLoadingText}>Preparando sesión...</Text>
           </View>
         ) : null}
@@ -478,7 +486,7 @@ export default function EscanearScreen() {
               ) : null}
             </View>
             <View style={styles.attendanceCountBadge}>
-              <Ionicons name='people' size={14} color='#800831' />
+              <Ionicons name='people' size={14} color={UPIICSA_YELLOW} />
               <Text style={styles.attendanceCountText}>{recentAttendance.length}</Text>
             </View>
           </View>
@@ -541,7 +549,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   button: {
-    backgroundColor: '#800831',
+    backgroundColor: UPIICSA_GREEN,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 32,
@@ -595,13 +603,15 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   changeMateriaButton: {
-    backgroundColor: '#800831',
+    backgroundColor: 'rgba(245,179,1,0.12)',
+    borderColor: UPIICSA_YELLOW,
+    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
   },
   changeMateriaButtonText: {
-    color: '#800831',
+    color: UPIICSA_GREEN,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -612,7 +622,7 @@ const styles = StyleSheet.create({
   },
   sessionLoadingText: {
     fontSize: 14,
-    color: '#800831',
+    color: UPIICSA_GREEN,
     marginLeft: 8,
   },
   cameraContainer: {
@@ -673,7 +683,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#800831',
+    backgroundColor: UPIICSA_GREEN,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -701,7 +711,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 40,
     height: 40,
-    borderColor: '#800831',
+    borderColor: UPIICSA_YELLOW,
     borderWidth: 4,
   },
   topLeft: {
@@ -790,17 +800,18 @@ const styles = StyleSheet.create({
   attendanceCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#800831',
+    backgroundColor: UPIICSA_GREEN,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   attendanceCountText: {
     fontSize: 13,
-    color: '#800831',
+    color: UPIICSA_YELLOW_LIGHT,
     fontWeight: '600',
     marginLeft: 6,
   },
 });
+
 
 

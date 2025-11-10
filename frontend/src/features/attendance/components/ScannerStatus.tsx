@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { FeedbackType, ScanFeedback } from '../types';
+import { UPIICSA_COLORS } from '../theme';
 
 interface ScannerStatusProps {
   status: ScanFeedback;
@@ -14,8 +15,8 @@ const STATUS_STYLES: Record<
   { container: { backgroundColor: string; borderColor: string }; icon: { name: React.ComponentProps<typeof Ionicons>['name']; color: string } }
 > = {
   info: {
-    container: { backgroundColor: '#800831', borderColor: '#800831' },
-    icon: { name: 'scan', color: '#800831' },
+    container: { backgroundColor: 'rgba(11,110,79,0.08)', borderColor: UPIICSA_COLORS.green },
+    icon: { name: 'scan', color: UPIICSA_COLORS.green },
   },
   success: {
     container: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0' },
