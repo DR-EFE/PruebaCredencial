@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -188,3 +188,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

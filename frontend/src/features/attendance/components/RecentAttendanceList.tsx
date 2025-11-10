@@ -142,10 +142,11 @@ const styles = StyleSheet.create({
   },
   update: {
     fontSize: 12,
-    color: '#1d4ed8',
+    color: '#800831',
     marginTop: 4,
   },
 });
 
 export default RecentAttendanceList;
+
 

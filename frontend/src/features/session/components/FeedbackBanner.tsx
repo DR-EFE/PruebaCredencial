@@ -15,8 +15,8 @@ const STYLE_MAP: Record<
   { container: { backgroundColor: string; borderColor: string }; icon: { name: React.ComponentProps<typeof Ionicons>['name']; color: string } }
 > = {
   info: {
-    container: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
-    icon: { name: 'information-circle', color: '#2563eb' },
+    container: { backgroundColor: '#800831', borderColor: '#800831' },
+    icon: { name: 'information-circle', color: '#800831' },
   },
   success: {
     container: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0' },
@@ -82,3 +82,4 @@ const styles = StyleSheet.create({
 });
 
 export default FeedbackBanner;
+

@@ -56,10 +56,10 @@ const STYLE_MAP: Record<
   }
 > = {
   info: {
-    background: '#eff6ff',
-    border: '#bfdbfe',
+    background: '#800831',
+    border: '#800831',
     icon: 'information-circle',
-    iconColor: '#2563eb',
+    iconColor: '#800831',
   },
   success: {
     background: '#ecfdf5',
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   notificationActionLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563eb',
+    color: '#800831',
     marginRight: 12,
   },
   closeButton: {
@@ -297,3 +297,4 @@ const styles = StyleSheet.create({
 });
 
 export default AppNotificationProvider;
+

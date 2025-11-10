@@ -127,7 +127,7 @@ export default function StudentReportScreen() {
     }, [boleta, loadStudentReport, materiaId]);
 
     if (loading) {
-        return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#2563eb" /></View>;
+        return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#800831" /></View>;
     }
 
     if (!student || !materia || !attendanceStats) {
@@ -151,7 +151,7 @@ export default function StudentReportScreen() {
                         <Image source={{ uri: student.fotografia }} style={styles.avatar} />
                     ) : (
                         <View style={styles.avatarPlaceholder}>
-                            <Ionicons name="person" size={24} color="#2563eb" />
+                            <Ionicons name="person" size={24} color="#800831" />
                         </View>
                     )}
                     <Text style={styles.headerTitle}>{`${student.nombre} ${student.apellido}`}</Text>
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     },
     avatarPlaceholder: {
         width: 40, height: 40, borderRadius: 20, marginRight: 12,
-        backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center'
+        backgroundColor: '#800831', justifyContent: 'center', alignItems: 'center'
     },
     headerTitle: {
         fontSize: 20,
@@ -288,3 +288,4 @@ const styles = StyleSheet.create({
         color: '#6b7280',
     },
 });
+

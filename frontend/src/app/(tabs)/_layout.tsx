@@ -5,7 +5,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: '#800831',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
           position: 'absolute',
@@ -31,7 +31,7 @@ export default function TabsLayout() {
           fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: '#2563eb',
+          backgroundColor: '#800831',
         },
         headerTintColor: '#fff',
         headerTitleStyle: {
@@ -96,3 +96,4 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+

@@ -232,7 +232,7 @@ useEffect(() => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#800831" />
       </View>
     );
   }
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   materiaChipActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
   },
   materiaChipText: {
     fontSize: 14,
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   reportTypeButtonTextActive: {
-    color: '#2563eb',
+    color: '#800831',
   },
   listContent: {
     padding: 16,
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   percentageBadge: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   percentageText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: '#800831',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -466,3 +466,4 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 });
+

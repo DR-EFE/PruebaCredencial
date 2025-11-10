@@ -102,7 +102,7 @@ export default function ReportDetailScreen() {
     }, [loadReportDetails]);
 
     if (loading) {
-        return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#2563eb" /></View>;
+        return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#800831" /></View>;
     }
 
     if (!session) {
@@ -253,3 +253,4 @@ const styles = StyleSheet.create({
         color: '#111827',
     },
 });
+

@@ -371,7 +371,7 @@ export default function SessionEnrollmentScreen() {
               <Text style={styles.instructionsTitle}>Antes de importar:</Text>
               {instructions.map((item) => (
                 <View key={item} style={styles.instructionsRow}>
-                  <Ionicons name='checkmark-circle' size={16} color='#2563eb' />
+                  <Ionicons name='checkmark-circle' size={16} color='#800831' />
                   <Text style={styles.instructionsText}>{item}</Text>
                 </View>
               ))}
@@ -383,7 +383,7 @@ export default function SessionEnrollmentScreen() {
                 onPress={handleFilePick}
                 disabled={isSaving}
               >
-                <Ionicons name='cloud-upload-outline' size={22} color='#2563eb' />
+                <Ionicons name='cloud-upload-outline' size={22} color='#800831' />
                 <Text style={styles.filePickerButtonText}>Seleccionar archivo CSV</Text>
               </TouchableOpacity>
               {fileName ? (
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#2563eb',
+    borderBottomColor: '#800831',
   },
   tabText: {
     fontSize: 16,
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   activeTabText: {
-    color: '#2563eb',
+    color: '#800831',
   },
   contentContainer: {
     paddingVertical: 24,
@@ -558,17 +558,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: '#800831',
     borderRadius: 12,
     paddingVertical: 12,
   },
   filePickerButtonText: {
-    color: '#2563eb',
+    color: '#800831',
     fontWeight: '600',
     fontSize: 15,
   },
   fileInfoContainer: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     borderRadius: 10,
     padding: 12,
     gap: 6,
@@ -585,12 +585,12 @@ const styles = StyleSheet.create({
   },
   fileClearButton: {
     fontSize: 13,
-    color: '#2563eb',
+    color: '#800831',
     fontWeight: '600',
   },
   fileInfoText: {
     fontSize: 13,
-    color: '#1d4ed8',
+    color: '#800831',
   },
   fileEmptyText: {
     fontSize: 13,
@@ -615,8 +615,8 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   previewCount: {
-    backgroundColor: '#eff6ff',
-    color: '#2563eb',
+    backgroundColor: '#800831',
+    color: '#800831',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
     color: '#c2410c',
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
@@ -699,3 +699,4 @@ const styles = StyleSheet.create({
     marginTop: -6,
   },
 });
+

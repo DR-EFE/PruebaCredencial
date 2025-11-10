@@ -62,7 +62,7 @@ const CAMERA_PHASE_DETAILS: Record<
   preparing: {
     icon: 'time-outline',
     badgeBackground: 'rgba(37,99,235,0.85)',
-    badgeColor: '#eff6ff',
+    badgeColor: '#800831',
     label: 'Preparando',
     overlayTitle: 'Preparando escaner',
     overlayDescription: 'Sincronizando la sesion y activando la camara del dispositivo.',
@@ -203,6 +203,13 @@ export default function EscanearScreen() {
   const [scannerPhase, setScannerPhase] = useState<ScannerPhase>('idle');
   const [sessionBanner, setSessionBanner] = useState<FeedbackBannerProps | null>(null);
   const isMountedRef = useRef(true);
+  const [showFinishButton, setShowFinishButton] = useState(false);
+
+  const handleFinish = () => {
+    // TODO: Implement finish logic
+    console.log('Pase de lista terminado');
+    // Maybe navigate back or show a summary
+  };
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -210,6 +217,19 @@ export default function EscanearScreen() {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (recentAttendance.length > 0 && !processing) {
+      const timer = setTimeout(() => {
+        if (isMountedRef.current) {
+          setShowFinishButton(true);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setShowFinishButton(false);
+    }
+  }, [recentAttendance.length, processing]);
 
   useFocusEffect(
     useCallback(() => {
@@ -328,7 +348,7 @@ export default function EscanearScreen() {
   if (!permission) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#800831" />
       </View>
     );
   }
@@ -354,7 +374,7 @@ export default function EscanearScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.noSessionContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color="#800831" />
           <Text style={styles.noSessionTitle}>Cargando materias</Text>
         </View>
       </View>
@@ -415,7 +435,7 @@ export default function EscanearScreen() {
         </View>
         {loadingSesion ? (
           <View style={styles.sessionLoading}>
-            <ActivityIndicator size="small" color="#2563eb" />
+            <ActivityIndicator size="small" color="#800831" />
             <Text style={styles.sessionLoadingText}>Preparando sesión...</Text>
           </View>
         ) : null}
@@ -449,9 +469,16 @@ export default function EscanearScreen() {
             processing={processing}
           />
           <View style={styles.attendanceHeader}>
-            <Text style={styles.attendanceTitle}>Pase de lista</Text>
+            <View style={styles.attendanceTitleContainer}>
+              <Text style={styles.attendanceTitle}>Pase de lista</Text>
+              {showFinishButton ? (
+                <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
+                  <Text style={styles.finishButtonText}>Terminar</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <View style={styles.attendanceCountBadge}>
-              <Ionicons name='people' size={14} color='#2563eb' />
+              <Ionicons name='people' size={14} color='#800831' />
               <Text style={styles.attendanceCountText}>{recentAttendance.length}</Text>
             </View>
           </View>
@@ -514,7 +541,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 32,
@@ -568,13 +595,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   changeMateriaButton: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
   },
   changeMateriaButtonText: {
-    color: '#2563eb',
+    color: '#800831',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -585,7 +612,7 @@ const styles = StyleSheet.create({
   },
   sessionLoadingText: {
     fontSize: 14,
-    color: '#2563eb',
+    color: '#800831',
     marginLeft: 8,
   },
   cameraContainer: {
@@ -646,7 +673,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -674,7 +701,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 40,
     height: 40,
-    borderColor: '#38bdf8',
+    borderColor: '#800831',
     borderWidth: 4,
   },
   topLeft: {
@@ -739,6 +766,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  attendanceTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  finishButton: {
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  finishButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   attendanceTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -747,16 +790,17 @@ const styles = StyleSheet.create({
   attendanceCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   attendanceCountText: {
     fontSize: 13,
-    color: '#2563eb',
+    color: '#800831',
     fontWeight: '600',
     marginLeft: 6,
   },
 });
+
 

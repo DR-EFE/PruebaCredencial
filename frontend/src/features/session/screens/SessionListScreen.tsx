@@ -494,7 +494,7 @@ export default function MateriasScreen() {
       >
         <View style={styles.cardHeader}>
           <View style={styles.iconBadge}>
-            <Ionicons name="book" size={24} color="#2563eb" />
+            <Ionicons name="book" size={24} color="#800831" />
           </View>
           <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>{item.nombre}</Text>
@@ -552,7 +552,7 @@ export default function MateriasScreen() {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color="#800831" />
         </View>
       ) : materias.length === 0 ? (
         <View style={styles.centerContainer}>
@@ -570,8 +570,8 @@ export default function MateriasScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadMaterias(false)}
-              tintColor="#2563eb"
-              colors={['#2563eb']}
+              tintColor="#800831"
+              colors={['#800831']}
             />
           }
         />
@@ -814,13 +814,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardSelected: { borderWidth: 2, borderColor: '#2563eb' },
+  cardSelected: { borderWidth: 2, borderColor: '#800831' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   iconBadge: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -840,7 +840,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
   },
-  editButton: { backgroundColor: '#2563eb' },
+  editButton: { backgroundColor: '#800831' },
   deleteButton: { backgroundColor: '#ef4444' },
   actionButtonText: { color: '#fff', fontSize: 15, fontWeight: '600', marginLeft: 8 },
   emptyText: { fontSize: 16, color: '#9ca3af', marginTop: 16, textAlign: 'center' },
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
@@ -907,14 +907,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   stepCircleActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#2563eb',
+    borderColor: '#800831',
+    backgroundColor: '#800831',
   },
   stepCircleText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
   stepCircleTextActive: { color: '#fff' },
   stepTextGroup: { flex: 1 },
   stepTitle: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
-  stepTitleActive: { color: '#2563eb' },
+  stepTitleActive: { color: '#800831' },
   stepDescription: { fontSize: 12, color: '#9ca3af', marginTop: 4 },
   stepDivider: {
     position: 'absolute',
@@ -958,7 +958,7 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     backgroundColor: '#f8fafc',
   },
-  dayButtonSelected: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  dayButtonSelected: { backgroundColor: '#800831', borderColor: '#800831' },
   dayButtonText: { fontWeight: '600', color: '#374151' },
   dayButtonTextSelected: { color: '#fff' },
   horarioInputs: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
@@ -1016,10 +1016,10 @@ const styles = StyleSheet.create({
   footerSecondary: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#cbd5f5',
+    borderColor: '#800831',
   },
-  footerSecondaryText: { color: '#2563eb', fontSize: 15, fontWeight: '600' },
-  footerPrimary: { backgroundColor: '#2563eb' },
+  footerSecondaryText: { color: '#800831', fontSize: 15, fontWeight: '600' },
+  footerPrimary: { backgroundColor: '#800831' },
   footerPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   buttonDisabled: { opacity: 0.6 },
   dialogOverlay: {
@@ -1048,9 +1048,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dialogSecondary: { backgroundColor: '#f8fafc' },
-  dialogSecondaryText: { color: '#1d4ed8', fontWeight: '600', fontSize: 14 },
+  dialogSecondaryText: { color: '#800831', fontWeight: '600', fontSize: 14 },
   dialogDestructive: { backgroundColor: '#ef4444' },
   dialogDestructiveText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });
+
 
 
