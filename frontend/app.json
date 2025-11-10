@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +26,8 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.efe1212.frontend"
+      "package": "com.efe1212.frontend",
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "bundler": "metro",
@@ -56,7 +60,14 @@
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplZmZ6bGV0a3FleXhmeGNhaHFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTMzNTAsImV4cCI6MjA3MzI4OTM1MH0.BkxOb4eC91lTx-xniRYcSSGJI8nl7O4VYqIyopKtGKs",
       "expoRouter": {
         "appRoot": "src/app"
+      },
+      "router": {},
+      "eas": {
+        "projectId": "fa4512ec-4554-41ab-a97a-565bfd532a29"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fa4512ec-4554-41ab-a97a-565bfd532a29"
     }
   }
 }

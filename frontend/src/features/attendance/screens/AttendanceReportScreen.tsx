@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { supabase } from '@/core/api/supabaseClient';
 import { useAuthStore } from '@/core/auth/useAuthStore';
@@ -190,44 +191,82 @@ useEffect(() => {
         ? Math.round(((item.presentes + item.tardanzas) / item.total_asistencias) * 100)
         : 0;
 
+    const statConfig = [
+      {
+        label: 'Presentes',
+        value: item.presentes,
+        icon: 'checkmark-circle' as const,
+        color: '#10b981',
+      },
+      {
+        label: 'Tardanzas',
+        value: item.tardanzas,
+        icon: 'time' as const,
+        color: '#f59e0b',
+      },
+      {
+        label: 'Faltas',
+        value: item.faltas,
+        icon: 'close-circle' as const,
+        color: '#ef4444',
+      },
+    ];
+
     return (
-      <TouchableOpacity onPress={() => router.push(`/report-detail?sesionId=${item.id}`)}>
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={styles.cardTitle}>
-                {format(new Date(item.fecha), 'dd/MM/yyyy')}
-              </Text>
-              <Text style={styles.cardSubtitle}>{item.tema}</Text>
-            </View>
-            <View style={styles.percentageBadge}>
-              <Text style={styles.percentageText}>{porcentajeAsistencia}%</Text>
-            </View>
+      <Pressable
+        onPress={() => router.push(`/report-detail?sesionId=${item.id}`)}
+        android_ripple={{ color: '#f3f4f6', borderless: false }}
+        hitSlop={{ top: 6, bottom: 6 }}
+        pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        style={({ pressed }) => [
+          styles.card,
+          styles.sessionCard,
+          pressed && styles.sessionCardPressed,
+        ]}
+      >
+        <View style={styles.sessionTopRow}>
+          <View style={styles.sessionBadge}>
+            <Ionicons name="calendar" size={16} color="#fff" />
+            <Text style={styles.sessionBadgeText}>{format(new Date(item.fecha), 'dd MMM')}</Text>
           </View>
 
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: '#10b981' }]} />
-              <Text style={styles.statLabel}>Presentes</Text>
-              <Text style={styles.statValue}>{item.presentes}</Text>
-            </View>
+          <View style={styles.sessionInfo}>
+            <Text style={styles.sessionTitle}>{item.tema || 'Sesion sin titulo'}</Text>
+            <Text style={styles.sessionMeta}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</Text>
+          </View>
 
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: '#f59e0b' }]} />
-              <Text style={styles.statLabel}>Tardanzas</Text>
-              <Text style={styles.statValue}>{item.tardanzas}</Text>
-            </View>
-
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: '#ef4444' }]} />
-              <Text style={styles.statLabel}>Faltas</Text>
-              <Text style={styles.statValue}>{item.faltas}</Text>
-            </View>
+          <View style={styles.sessionPercentage}>
+            <Text style={styles.sessionPercentageValue}>{porcentajeAsistencia}%</Text>
+            <Text style={styles.sessionPercentageLabel}>asistencia</Text>
           </View>
         </View>
-      </TouchableOpacity>
+
+        <View style={styles.sessionStatsRow}>
+          {statConfig.map((stat) => (
+            <View key={stat.label} style={styles.sessionStat}>
+              <View style={[styles.sessionStatIcon, { backgroundColor: `${stat.color}1a` }]}>
+                <Ionicons name={stat.icon} size={18} color={stat.color} />
+              </View>
+              <Text style={styles.sessionStatValue}>{stat.value}</Text>
+              <Text style={styles.sessionStatLabel}>{stat.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.sessionFooter}>
+          <View style={styles.sessionFooterDetail}>
+            <Ionicons name="people" size={16} color="#6b7280" />
+            <Text style={styles.sessionFooterText}>
+              {item.total_asistencias} registros capturados
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+        </View>
+      </Pressable>
     );
   };
+
+  const sessionListPadding = useMemo(() => (sesiones.length < 3 ? styles.listContentCompact : null), [sesiones.length]);
 
   if (loading) {
     return (
@@ -295,33 +334,38 @@ useEffect(() => {
       </View>
 
       {/* Lista de reportes */}
-      {reportType === 'sesiones' && (
-        <FlatList
-          data={sesiones}
-          renderItem={renderSesion}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<View style={styles.centerContainer}><Text style={styles.emptyText}>No hay sesiones</Text></View>}
-        />
-      )}
-      {reportType === 'semanal' && (
-        <FlatList
-          data={weeklyReports}
-          renderItem={renderWeeklyReport}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<View style={styles.centerContainer}><Text style={styles.emptyText}>No hay reportes semanales</Text></View>}
-        />
-      )}
-      {reportType === 'mensual' && (
-        <FlatList
-          data={monthlyReports}
-          renderItem={renderMonthlyReport}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<View style={styles.centerContainer}><Text style={styles.emptyText}>No hay reportes mensuales</Text></View>}
-        />
-      )}
+      <View style={{ flex: 1 }}>
+        {reportType === 'sesiones' && (
+          <FlatList
+            data={sesiones}
+            renderItem={renderSesion}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={[styles.listContent, sessionListPadding]}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={<View style={styles.centerContainer}><Text style={styles.emptyText}>No hay sesiones</Text></View>}
+          />
+        )}
+        {reportType === 'semanal' && (
+          <FlatList
+            data={weeklyReports}
+            renderItem={renderWeeklyReport}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={<View style={styles.centerContainer}><Text style={styles.emptyText}>No hay reportes semanales</Text></View>}
+          />
+        )}
+        {reportType === 'mensual' && (
+          <FlatList
+            data={monthlyReports}
+            renderItem={renderMonthlyReport}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={<View style={styles.centerContainer}><Text style={styles.emptyText}>No hay reportes mensuales</Text></View>}
+          />
+        )}
+      </View>
     </View>
   );
 }
@@ -398,6 +442,10 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
   },
+  listContentCompact: {
+    padding: 16,
+    paddingBottom: 200,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -459,6 +507,114 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
+  },
+  sessionCard: {
+    padding: 20,
+  },
+  sessionCardPressed: {
+    transform: [{ scale: 0.99 }],
+    opacity: 0.96,
+  },
+  sessionTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sessionBadge: {
+    backgroundColor: '#800831',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sessionBadgeText: {
+    color: '#fff',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    fontSize: 12,
+  },
+  sessionInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  sessionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  sessionMeta: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  sessionPercentage: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'flex-end',
+  },
+  sessionPercentageValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#800831',
+  },
+  sessionPercentageLabel: {
+    fontSize: 11,
+    color: '#9f1239',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sessionStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
+  sessionStat: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  sessionStatIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sessionStatValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  sessionStatLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  sessionFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    paddingTop: 12,
+  },
+  sessionFooterDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sessionFooterText: {
+    fontSize: 13,
+    color: '#4b5563',
   },
   emptyText: {
     fontSize: 16,

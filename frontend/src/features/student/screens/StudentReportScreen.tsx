@@ -298,6 +298,7 @@ export default function StudentReportScreen() {
             yAxisThickness={0}
             xAxisThickness={0}
             xAxisLabelTextStyle={styles.chartLabel}
+            disableScroll
           />
           <View style={styles.legendRow}>
             {chartData.map((item) => (
@@ -323,7 +324,7 @@ export default function StudentReportScreen() {
               showGradient
               innerRadius={55}
               radius={80}
-              focusOnPress
+              focusOnPress={false}
               centerLabelComponent={() => (
                 <View style={styles.pieCenter}>
                   <Text style={styles.pieCenterValue}>{attendanceRate}%</Text>
