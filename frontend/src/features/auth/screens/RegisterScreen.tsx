@@ -142,7 +142,7 @@ export default function RegisterScreen() {
             <Ionicons name='arrow-back' size={24} color='#800831' />
           </TouchableOpacity>
           <View style={styles.iconContainer}>
-            <Ionicons name='person-add' size={48} color='#800831' />
+            <Ionicons name='person-add' size={48} color='#fff' />
           </View>
           <Text style={styles.title}>Registro de Profesor</Text>
           <Text style={styles.subtitle}>

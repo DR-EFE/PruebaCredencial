@@ -151,7 +151,7 @@ export default function StudentReportScreen() {
                         <Image source={{ uri: student.fotografia }} style={styles.avatar} />
                     ) : (
                         <View style={styles.avatarPlaceholder}>
-                            <Ionicons name="person" size={24} color="#800831" />
+                            <Ionicons name="person" size={24} color="#fff" />
                         </View>
                     )}
                     <Text style={styles.headerTitle}>{`${student.nombre} ${student.apellido}`}</Text>

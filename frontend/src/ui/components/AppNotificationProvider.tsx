@@ -53,13 +53,19 @@ const STYLE_MAP: Record<
     border: string;
     icon: React.ComponentProps<typeof Ionicons>['name'];
     iconColor: string;
+    titleColor?: string;
+    messageColor?: string;
+    actionColor?: string;
   }
 > = {
   info: {
     background: '#800831',
     border: '#800831',
     icon: 'information-circle',
-    iconColor: '#800831',
+    iconColor: '#ffffff',
+    titleColor: '#ffffff',
+    messageColor: 'rgba(255,255,255,0.9)',
+    actionColor: '#ffffff',
   },
   success: {
     background: '#ecfdf5',
@@ -170,8 +176,24 @@ export const AppNotificationProvider = ({ children }: { children: React.ReactNod
                   style={styles.notificationIcon}
                 />
                 <View style={styles.notificationTexts}>
-                  {item.title ? <Text style={styles.notificationTitle}>{item.title}</Text> : null}
-                  <Text style={styles.notificationMessage}>{item.message}</Text>
+                  {item.title ? (
+                    <Text
+                      style={[
+                        styles.notificationTitle,
+                        variant.titleColor && { color: variant.titleColor },
+                      ]}
+                    >
+                      {item.title}
+                    </Text>
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.notificationMessage,
+                      variant.messageColor && { color: variant.messageColor },
+                    ]}
+                  >
+                    {item.message}
+                  </Text>
                 </View>
               </View>
               <View style={styles.notificationActions}>
@@ -182,11 +204,22 @@ export const AppNotificationProvider = ({ children }: { children: React.ReactNod
                       item.onAction?.();
                     }}
                   >
-                    <Text style={styles.notificationActionLabel}>{item.actionLabel}</Text>
+                    <Text
+                      style={[
+                        styles.notificationActionLabel,
+                        variant.actionColor && { color: variant.actionColor },
+                      ]}
+                    >
+                      {item.actionLabel}
+                    </Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity onPress={() => dismiss(item.id)} style={styles.closeButton}>
-                  <Ionicons name="close" size={16} color="#475569" />
+                  <Ionicons
+                    name="close"
+                    size={16}
+                    color={variant.actionColor ? 'rgba(255,255,255,0.9)' : '#475569'}
+                  />
                 </TouchableOpacity>
               </View>
             </View>

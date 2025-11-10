@@ -51,7 +51,7 @@ export default function PerfilScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Ionicons name='person' size={48} color='#800831' />
+          <Ionicons name='person' size={48} color='#fff' />
         </View>
         <Text style={styles.name}>
           {profesor?.nombre} {profesor?.apellido}

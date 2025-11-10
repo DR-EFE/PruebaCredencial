@@ -114,9 +114,9 @@ export default function LoginScreen() {
       style={styles.container}
     >
       <View style={styles.content}>
-        <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Ionicons name='school' size={64} color='#800831' />
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+            <Ionicons name='school' size={64} color='#fff' />
           </View>
           <Text style={styles.title}>UPIICSA Asistencia</Text>
           <Text style={styles.subtitle}>Sistema de Registro Docente</Text>

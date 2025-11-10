@@ -581,16 +581,16 @@ const styles = StyleSheet.create({
   fileNameText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#ffffff',
   },
   fileClearButton: {
     fontSize: 13,
-    color: '#800831',
+    color: 'rgba(255,255,255,0.85)',
     fontWeight: '600',
   },
   fileInfoText: {
     fontSize: 13,
-    color: '#800831',
+    color: '#ffffff',
   },
   fileEmptyText: {
     fontSize: 13,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
   },
   previewCount: {
     backgroundColor: '#800831',
-    color: '#800831',
+    color: '#ffffff',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,

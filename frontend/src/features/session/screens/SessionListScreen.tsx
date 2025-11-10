@@ -494,7 +494,7 @@ export default function MateriasScreen() {
       >
         <View style={styles.cardHeader}>
           <View style={styles.iconBadge}>
-            <Ionicons name="book" size={24} color="#800831" />
+            <Ionicons name="book" size={24} color="#fff" />
           </View>
           <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>{item.nombre}</Text>
