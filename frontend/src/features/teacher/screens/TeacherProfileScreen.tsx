@@ -62,7 +62,7 @@ export default function PerfilScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Configuracion</Text>
 
-        <TouchableOpacity style={styles.option}>
+        <TouchableOpacity style={styles.option} onPress={() => router.push('/(tabs)/edit-profile')}>
           <View style={styles.optionIcon}>
             <Ionicons name='person-outline' size={24} color='#6b7280' />
           </View>
@@ -73,16 +73,7 @@ export default function PerfilScreen() {
           <Ionicons name='chevron-forward' size={20} color='#9ca3af' />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.option}>
-          <View style={styles.optionIcon}>
-            <Ionicons name='notifications-outline' size={24} color='#6b7280' />
-          </View>
-          <View style={styles.optionContent}>
-            <Text style={styles.optionTitle}>Notificaciones</Text>
-            <Text style={styles.optionSubtitle}>Configura alertas y recordatorios</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#9ca3af' />
-        </TouchableOpacity>
+       
 
         <TouchableOpacity style={styles.option} onPress={() => router.push('/(auth)/change-password')}>
           <View style={styles.optionIcon}>

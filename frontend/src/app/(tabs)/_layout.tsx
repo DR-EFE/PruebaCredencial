@@ -76,6 +76,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="edit-profile"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="materiaDetalle"
         options={{
           href: null,
