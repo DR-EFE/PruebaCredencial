@@ -25,6 +25,13 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Environment configuration
+
+1. Create a `.env.local` file (git-ignored) from `.env.example` and set only the non-sensitive values that Expo can expose publicly (for example `EXPO_PUBLIC_BACKEND_URL`). Keep Supabase URLs and keys scoped by environment using the `SUPABASE_*_{ENV}` entries.
+2. When running locally, set `APP_ENV` to the target profile (`dev`, `stg`, or `prod`). The Expo CLI automatically loads `.env.local`.
+3. For EAS builds, store the secrets with `eas secret:create --scope build --name SUPABASE_URL_DEV --value "https://..."` (repeat for `SUPABASE_ANON_KEY_DEV`, `SUPABASE_URL_STG`, `SUPABASE_ANON_KEY_STG`, `SUPABASE_URL_PROD`, `SUPABASE_ANON_KEY_PROD`). EAS injects those variables so `app.config.ts` can forward them to the runtime.
+4. Use the matching profile defined in `eas.json` (`dev`, `stg`, or `prod`). Each profile sets `APP_ENV` automatically; only public values should be prefixed with `EXPO_PUBLIC_`.
+
 ## Get a fresh project
 
 When you're ready, run:

@@ -1,0 +1,31 @@
+{
+  "cli": {
+    "version": ">= 8.0.0"
+  },
+  "build": {
+    "dev": {
+      "distribution": "internal",
+      "developmentClient": true,
+      "releaseChannel": "dev",
+      "env": {
+        "APP_ENV": "dev"
+      }
+    },
+    "stg": {
+      "releaseChannel": "stg",
+      "env": {
+        "APP_ENV": "stg"
+      }
+    },
+    "prod": {
+      "releaseChannel": "prod",
+      "autoIncrement": "version",
+      "env": {
+        "APP_ENV": "prod"
+      }
+    }
+  },
+  "submit": {
+    "prod": {}
+  }
+}
