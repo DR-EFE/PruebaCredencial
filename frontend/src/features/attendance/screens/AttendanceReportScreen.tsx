@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format, getWeek, getMonth, getYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
+import { useAppNotifications } from '@/ui/components/AppNotificationProvider';
 
 interface Materia {
   id: number;
@@ -62,15 +63,27 @@ export default function ReportesScreen() {
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
   const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingMaterias, setLoadingMaterias] = useState(true);
+  const [loadingReportes, setLoadingReportes] = useState(false);
+  const isLoading = loadingMaterias || loadingReportes;
+  const [error, setError] = useState<string | null>(null);
   const [reportType, setReportType] = useState('sesiones'); // sesiones, semanal, mensual
   const profesor = useAuthStore((state) => state.profesor);
   const router = useRouter();
+  const { notify } = useAppNotifications();
 
   const loadMaterias = useCallback(async () => {
-    try {
-      if (!profesor) return;
+    setError(null);
 
+    if (!profesor) {
+      setMaterias([]);
+      setSelectedMateria(null);
+      setLoadingMaterias(false);
+      return;
+    }
+
+    setLoadingMaterias(true);
+    try {
       const { data, error } = await supabase
         .from('materias')
         .select('id, nombre')
@@ -80,19 +93,37 @@ export default function ReportesScreen() {
       if (error) throw error;
       setMaterias(data || []);
       if (data && data.length > 0) {
-        setSelectedMateria(data[0].id);
+        setSelectedMateria((prev) => (prev && data.some((m) => m.id === prev) ? prev : data[0].id));
+      } else {
+        setSelectedMateria(null);
       }
     } catch (error) {
-      console.error(error);
+      console.error('[Reportes] Error cargando materias', error);
+      const message =
+        error instanceof Error && error.message ? error.message : 'Intenta nuevamente en unos momentos.';
+      notify({
+        type: 'error',
+        title: 'No se pudieron cargar las materias',
+        message,
+      });
+      setError('No se pudieron cargar tus materias. Intenta nuevamente.');
     } finally {
-      setLoading(false);
+      setLoadingMaterias(false);
     }
-  }, [profesor]);
+  }, [profesor, notify]);
 
   const loadSesiones = useCallback(async () => {
-    try {
-      if (!selectedMateria) return;
+    if (!selectedMateria) {
+      setSesiones([]);
+      setWeeklyReports([]);
+      setMonthlyReports([]);
+      setLoadingReportes(false);
+      return;
+    }
 
+    setLoadingReportes(true);
+    setError(null);
+    try {
       const { data: sesionesData, error: sesionesError } = await supabase
         .from('sesiones')
         .select('*, asistencias(estado)')
@@ -102,7 +133,7 @@ export default function ReportesScreen() {
 
       if (sesionesError) throw sesionesError;
 
-      const sesionesConStats: Sesion[] = sesionesData.map(sesion => {
+      const sesionesConStats: Sesion[] = sesionesData.map((sesion) => {
         const asistencias = sesion.asistencias;
         const presentes = asistencias.filter((a: Asistencia) => a.estado === 'presente').length;
         const tardanzas = asistencias.filter((a: Asistencia) => a.estado === 'tardanza').length;
@@ -112,6 +143,8 @@ export default function ReportesScreen() {
 
       if (reportType === 'sesiones') {
         setSesiones(sesionesConStats);
+        setWeeklyReports([]);
+        setMonthlyReports([]);
       } else if (reportType === 'semanal') {
         const grouped = sesionesConStats.reduce((acc: { [key: string]: WeeklyReport }, sesion) => {
           const week = getWeek(new Date(sesion.fecha), { weekStartsOn: 1 });
@@ -128,6 +161,8 @@ export default function ReportesScreen() {
           return acc;
         }, {});
         setWeeklyReports(Object.values(grouped));
+        setSesiones([]);
+        setMonthlyReports([]);
       } else if (reportType === 'mensual') {
         const grouped = sesionesConStats.reduce((acc: { [key: string]: MonthlyReport }, sesion) => {
           const month = getMonth(new Date(sesion.fecha));
@@ -144,11 +179,23 @@ export default function ReportesScreen() {
           return acc;
         }, {});
         setMonthlyReports(Object.values(grouped));
+        setSesiones([]);
+        setWeeklyReports([]);
       }
     } catch (error) {
-      console.error(error);
+      console.error('[Reportes] Error cargando sesiones', error);
+      const message =
+        error instanceof Error && error.message ? error.message : 'Intenta nuevamente en unos momentos.';
+      notify({
+        type: 'error',
+        title: 'No se pudieron cargar los reportes',
+        message,
+      });
+      setError('No se pudieron cargar los reportes de asistencia. Intenta de nuevo.');
+    } finally {
+      setLoadingReportes(false);
     }
-  }, [reportType, selectedMateria]);
+  }, [notify, reportType, selectedMateria]);
 
 useEffect(() => {
   loadMaterias();
@@ -230,10 +277,27 @@ useEffect(() => {
     );
   };
 
-  if (loading) {
+  const handleRetry = useCallback(() => {
+    loadMaterias();
+    loadSesiones();
+  }, [loadMaterias, loadSesiones]);
+
+  if (isLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centerContainer}>
+        <Ionicons name="alert-circle-outline" size={56} color="#f97316" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -337,6 +401,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f9fafb',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#9a3412',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 20,
+    paddingHorizontal: 24,
+  },
+  retryButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
   selectorContainer: {
     backgroundColor: '#fff',

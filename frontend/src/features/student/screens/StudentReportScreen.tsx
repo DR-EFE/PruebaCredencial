@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/core/api/supabaseClient';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppNotifications } from '@/ui/components/AppNotificationProvider';
 
 interface Student {
     boleta: string;
@@ -70,13 +71,16 @@ const BarChart = ({ data }: BarChartProps) => {
 export default function StudentReportScreen() {
     const { materiaId, boleta } = useLocalSearchParams();
     const router = useRouter();
+    const { notify } = useAppNotifications();
     const [loading, setLoading] = useState(true);
     const [student, setStudent] = useState<Student | null>(null);
     const [materia, setMateria] = useState<{ nombre: string } | null>(null);
     const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const loadStudentReport = useCallback(async () => {
         setLoading(true);
+        setError(null);
         try {
             // Fetch student and materia info
             const { data: studentData, error: studentError } = await supabase.from('estudiantes').select('*').eq('boleta', boleta).single();
@@ -114,7 +118,16 @@ export default function StudentReportScreen() {
 
         } catch (error) {
             console.error(error);
-            // Handle error display
+            const message =
+                error instanceof Error && error.message
+                    ? error.message
+                    : 'Intenta nuevamente en unos momentos.';
+            notify({
+                type: 'error',
+                title: 'No se pudo cargar el reporte',
+                message,
+            });
+            setError('No se pudo cargar la información del estudiante. Intente de nuevo.');
         } finally {
             setLoading(false);
         }
@@ -130,8 +143,25 @@ export default function StudentReportScreen() {
         return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#2563eb" /></View>;
     }
 
+    if (error) {
+        return (
+            <View style={styles.centerContainer}>
+                <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity onPress={() => loadStudentReport()} style={styles.retryButton}>
+                    <Text style={styles.retryButtonText}>Reintentar</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
     if (!student || !materia || !attendanceStats) {
-        return <View style={styles.centerContainer}><Text>No se pudo cargar la información.</Text></View>;
+        return (
+            <View style={styles.centerContainer}>
+                <Ionicons name="information-circle-outline" size={48} color="#6b7280" />
+                <Text style={styles.emptyText}>No se encontró información para este estudiante.</Text>
+            </View>
+        );
     }
 
     const chartData: ChartData[] = [

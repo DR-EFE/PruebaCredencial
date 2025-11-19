@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import Papa from 'papaparse';
 
 import { supabase } from '@/core/api/supabaseClient';
@@ -26,6 +27,41 @@ const BOLETA_REGEX = /^\d{10}$/;
 interface PendingAlumno {
   boleta: string;
 }
+
+const readCsvFileContent = async (uri: string) => {
+  if (!uri) {
+    throw new Error('No se proporcionó un archivo válido.');
+  }
+
+  if (uri.startsWith('content://')) {
+    const target = `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory}csv-upload-${Date.now()}.csv`;
+    try {
+      await FileSystem.copyAsync({ from: uri, to: target });
+      const content = await FileSystem.readAsStringAsync(target, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      return content;
+    } finally {
+      try {
+        await FileSystem.deleteAsync(target, { idempotent: true });
+      } catch {
+        // noop
+      }
+    }
+  }
+
+  if (uri.startsWith('file://')) {
+    return FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+  }
+
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error('No se pudo leer el archivo seleccionado.');
+  }
+  return response.text();
+};
 
 export default function SessionEnrollmentScreen() {
   const { materia_id } = useLocalSearchParams();
@@ -60,6 +96,14 @@ export default function SessionEnrollmentScreen() {
   const isValidBoleta = (boleta: string) => BOLETA_REGEX.test(boleta);
 
   const handleFilePick = async () => {
+    let loaderVisible = false;
+    const safeHideLoader = () => {
+      if (loaderVisible) {
+        hideLoader();
+        loaderVisible = false;
+      }
+    };
+
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: 'text/csv' });
       if (result.canceled) {
@@ -77,13 +121,14 @@ export default function SessionEnrollmentScreen() {
       }
 
       showLoader('Procesando archivo...');
-      const fileContent = await fetch(asset.uri).then((response) => response.text());
+      loaderVisible = true;
+      const fileContent = await readCsvFileContent(asset.uri);
 
       Papa.parse(fileContent, {
         header: true,
         skipEmptyLines: true,
         complete: (parseResult) => {
-          hideLoader();
+          safeHideLoader();
           const rows = Array.isArray(parseResult.data) ? parseResult.data : [];
           const seen = new Set<string>();
           const valid: string[] = [];
@@ -134,37 +179,160 @@ export default function SessionEnrollmentScreen() {
 
             notify({
               type: 'warning',
-              title: 'Importacion parcial',
-              message: `Se agregaron ${valid.length} boletas. Se omitieron ${issues}.`,
+              title: 'Se importaron con observaciones',
+              message: `Se detectaron ${issues}. Solo se cargar�n las boletas v�lidas.`,
             });
-            return;
+          } else {
+            notify({
+              type: 'success',
+              title: 'CSV procesado',
+              message: `${valid.length} boletas listas para inscribir.`,
+            });
           }
-
-          notify({
-            type: 'success',
-            title: 'Archivo cargado',
-            message: `Se prepararon ${valid.length} boletas para inscripcion.`,
-          });
         },
-        error: () => {
-          hideLoader();
+        error: (parseError) => {
+          safeHideLoader();
+          console.error('[Inscripciones] Error procesando CSV', parseError);
+          const message =
+            parseError && typeof parseError.message === 'string' && parseError.message.trim().length > 0
+              ? parseError.message
+              : 'Verifica que el archivo sea un CSV con cabecera "boleta".';
           notify({
             type: 'error',
-            title: 'Error al procesar el CSV',
-            message: 'Confirma que el archivo esta en formato CSV y vuelve a intentarlo.',
+            title: 'No se pudo procesar el CSV',
+            message,
           });
         },
       });
     } catch (error) {
-      hideLoader();
-      console.error('Error picking document:', error);
+      safeHideLoader();
+      console.error('[Inscripciones] Error leyendo archivo CSV', error);
       notify({
         type: 'error',
         title: 'No se pudo leer el archivo',
-        message: 'Intenta seleccionar el CSV nuevamente.',
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : 'Confirma los permisos del archivo e intenta nuevamente.',
       });
     }
   };
+
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: "text/csv" });
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (!asset) {
+        notify({
+          type: "error",
+          title: "No se pudo leer el archivo",
+          message: "Intenta seleccionar el CSV nuevamente.",
+        });
+        return;
+      }
+
+      showLoader("Procesando archivo...");
+      loaderVisible = true;
+      const fileContent = await readCsvFileContent(asset.uri);
+
+      Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (parseResult) => {
+          safeHideLoader();
+          const rows = Array.isArray(parseResult.data) ? parseResult.data : [];
+          const seen = new Set<string>();
+          const valid: string[] = [];
+          const invalid: string[] = [];
+          const duplicates: string[] = [];
+
+          rows.forEach((row: any) => {
+            const rawBoleta = typeof row?.boleta === "string" ? row.boleta.trim() : "";
+            if (!rawBoleta) {
+              return;
+            }
+
+            if (!isValidBoleta(rawBoleta)) {
+              invalid.push(rawBoleta);
+              return;
+            }
+
+            if (seen.has(rawBoleta)) {
+              duplicates.push(rawBoleta);
+              return;
+            }
+
+            seen.add(rawBoleta);
+            valid.push(rawBoleta);
+          });
+
+          setFileName(asset.name);
+          setNewAlumnos(valid.map((boleta) => ({ boleta })));
+          setInvalidBoletas(invalid);
+          setDuplicateBoletas(duplicates);
+
+          if (valid.length === 0) {
+            notify({
+              type: "error",
+              title: "No se detectaron boletas validas",
+              message: "Confirma que la columna se llama "boleta" y que cada valor tiene 10 digitos.",
+            });
+            return;
+          }
+
+          if (invalid.length > 0 || duplicates.length > 0) {
+            const issues = [
+              invalid.length > 0 ? `${invalid.length} con formato incorrecto` : null,
+              duplicates.length > 0 ? `${duplicates.length} duplicadas` : null,
+            ]
+              .filter(Boolean)
+              .join(" y ");
+
+            notify({
+              type: "warning",
+              title: "Se importaron con observaciones",
+              message: `Se detectaron ${issues}. Solo se cargar�n las boletas v�lidas.`,
+            });
+          } else {
+            notify({
+              type: "success",
+              title: "CSV procesado",
+              message: `${valid.length} boletas listas para inscribir.`,
+            });
+          }
+        },
+        error: (parseError) => {
+          safeHideLoader();
+          console.error("[Inscripciones] Error procesando CSV", parseError);
+          const message =
+            parseError && typeof parseError.message === "string" && parseError.message.trim().length > 0
+              ? parseError.message
+              : "Verifica que el archivo sea un CSV con cabecera "boleta".";
+          notify({
+            type: "error",
+            title: "No se pudo procesar el CSV",
+            message,
+          });
+        },
+      });
+    } catch (error) {
+      safeHideLoader();
+      console.error("[Inscripciones] Error leyendo archivo CSV", error);
+      notify({
+        type: "error",
+        title: "No se pudo leer el archivo",
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : "Confirma los permisos del archivo e intenta nuevamente.",
+      });
+    }
+  };
+
 
   const handleRemoveBoleta = (boleta: string) => {
     setNewAlumnos((prev) => prev.filter((alumno) => alumno.boleta !== boleta));
