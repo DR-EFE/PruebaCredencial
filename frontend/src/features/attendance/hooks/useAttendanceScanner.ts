@@ -49,6 +49,24 @@ const computeHash = async (payload: string) => {
   }
 };
 
+const buildTodayDateFromTime = (time?: string | null) => {
+  if (!time) {
+    return null;
+  }
+
+  const [hoursStr = '0', minutesStr = '0', secondsStr = '0'] = time.split(':');
+  const hours = Number(hoursStr);
+  const minutes = Number(minutesStr);
+  const seconds = Number(secondsStr);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds)) {
+    return null;
+  }
+
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds);
+};
+
 export const useAttendanceScanner = ({
   sesionActiva,
   profesor,
@@ -517,17 +535,12 @@ export const useAttendanceScanner = ({
           return;
         }
 
-        const horaReferencia = sesionActiva.hora_inicio || format(new Date(), 'HH:mm:ss');
+        const horaReferencia =
+          sesionActiva.hora_inicio_programada ||
+          sesionActiva.hora_inicio ||
+          format(new Date(), 'HH:mm:ss');
         const now = new Date();
-        const [hours, minutes, seconds] = horaReferencia.split(':').map(Number);
-        const horaInicio = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          hours,
-          minutes,
-          seconds
-        );
+        const horaInicio = buildTodayDateFromTime(horaReferencia) ?? now;
 
         const diferenciaMinutos = Math.floor((now.getTime() - horaInicio.getTime()) / (1000 * 60));
         const duracionClase = sesionActiva.duracion_minutos ?? 90;

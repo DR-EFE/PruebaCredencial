@@ -14,6 +14,19 @@ interface EnsureSessionResult {
   changed: boolean;
 }
 
+const normalizeTimeWithSeconds = (time?: string | null) => {
+  if (!time) {
+    return null;
+  }
+
+  const trimmed = time.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.length === 5 ? `${trimmed}:00` : trimmed;
+};
+
 export const useAttendanceSession = ({ profesorId }: UseAttendanceSessionOptions) => {
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [loadingMaterias, setLoadingMaterias] = useState(true);
@@ -71,12 +84,13 @@ export const useAttendanceSession = ({ profesorId }: UseAttendanceSessionOptions
 
         const { data: horario } = await supabase
           .from('horarios')
-          .select('duracion_minutos')
+          .select('duracion_minutos, hora_inicio')
           .eq('materia_id', materia.id)
           .eq('dia_semana', isoDayOfWeek)
           .single();
 
         const duracionClase = horario?.duracion_minutos ?? 90;
+        const horaInicioProgramada = normalizeTimeWithSeconds(horario?.hora_inicio ?? null);
         const today = format(todayDate, 'yyyy-MM-dd');
 
         if (
@@ -85,9 +99,18 @@ export const useAttendanceSession = ({ profesorId }: UseAttendanceSessionOptions
           sesionActiva.fecha &&
           sesionActiva.fecha.startsWith(today)
         ) {
-          if (sesionActiva.duracion_minutos !== duracionClase) {
+          if (
+            sesionActiva.duracion_minutos !== duracionClase ||
+            sesionActiva.hora_inicio_programada !== horaInicioProgramada
+          ) {
             setSesionActiva((prev) =>
-              prev ? { ...prev, duracion_minutos: duracionClase } : prev
+              prev
+                ? {
+                    ...prev,
+                    duracion_minutos: duracionClase,
+                    hora_inicio_programada: horaInicioProgramada,
+                  }
+                : prev
             );
           }
 
@@ -112,13 +135,14 @@ export const useAttendanceSession = ({ profesorId }: UseAttendanceSessionOptions
             ...session,
             materia_nombre: materia.nombre,
             duracion_minutos: duracionClase,
+            hora_inicio_programada: horaInicioProgramada,
           };
           const changed = !sesionActiva || sesionActiva.id !== session.id;
           setSesionActiva(hydratedSession);
           return { session: hydratedSession, changed };
         }
 
-        const horaInicio = format(new Date(), 'HH:mm:ss');
+        const horaInicio = horaInicioProgramada ?? format(new Date(), 'HH:mm:ss');
         const { data: nuevaSesion, error: createError } = await supabase
           .from('sesiones')
           .insert({
@@ -140,6 +164,7 @@ export const useAttendanceSession = ({ profesorId }: UseAttendanceSessionOptions
           ...nuevaSesion,
           materia_nombre: materia.nombre,
           duracion_minutos: duracionClase,
+          hora_inicio_programada: horaInicioProgramada,
         };
 
         setSesionActiva(nuevaSesionHydrated);

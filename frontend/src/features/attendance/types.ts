@@ -14,6 +14,7 @@ export interface SesionActiva {
   estado: string;
   materia_nombre: string;
   duracion_minutos?: number;
+  hora_inicio_programada?: string | null;
 }
 
 export interface ScrapedStudent {
