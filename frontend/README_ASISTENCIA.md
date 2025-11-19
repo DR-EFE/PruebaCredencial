@@ -12,8 +12,10 @@ Aplicación móvil en React Native con Expo para el registro de asistencia media
 - **Navegación**: React Navigation (Bottom Tabs)
 
 ## Credenciales de Supabase
-- **URL**: https://jeffzletkqeyxfxcahqs.supabase.co
-- **Anon Key**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplZmZ6bGV0a3FleXhmeGNhaHFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTMzNTAsImV4cCI6MjA3MzI4OTM1MH0.BkxOb4eC91lTx-xniRYcSSGJI8nl7O4VYqIyopKtGKs
+Las llaves reales ya **no** se versionan en el repositorio. Para configurar el proyecto:
+- Copia `frontend/.env.example` a `frontend/.env`
+- Asigna `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_ANON_KEY` a los valores rotados de tu proyecto
+- Nunca subas los archivos `.env` ni compartas las llaves en documentación pública
 
 ## Estructura de la Aplicación
 
