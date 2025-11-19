@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -199,6 +199,7 @@ export default function EscanearScreen() {
     handleBarCodeScanned,
   } = useAttendanceScanner({ sesionActiva, profesor });
 
+  const isScreenFocused = useIsFocused();
   const canScan = Boolean(sesionActiva) && !loadingSesion;
   const [scannerPhase, setScannerPhase] = useState<ScannerPhase>('idle');
   const [sessionBanner, setSessionBanner] = useState<FeedbackBannerProps | null>(null);
@@ -214,8 +215,25 @@ export default function EscanearScreen() {
   useFocusEffect(
     useCallback(() => {
       reloadMaterias();
-    }, [reloadMaterias])
+
+      return () => {
+        setScanning(false);
+        stopProcessing();
+      };
+    }, [reloadMaterias, setScanning, stopProcessing])
   );
+
+  useEffect(() => {
+    if (!isScreenFocused) {
+      setScanning(false);
+      stopProcessing();
+      return;
+    }
+
+    if (scannerPhase === 'scanning' && canScan) {
+      setScanning(true);
+    }
+  }, [isScreenFocused, setScanning, stopProcessing, scannerPhase, canScan]);
 
   const prepareScannerSession = useCallback(async () => {
     if (!selectedMateria) {
@@ -322,8 +340,8 @@ export default function EscanearScreen() {
     };
   }, [scannerPhase, processing, canScan]);
 
-
   const activeStatus = feedback ?? defaultStatus;
+  const shouldRenderCamera = isScreenFocused && Boolean(permission?.granted);
 
   if (!permission) {
     return (
@@ -423,21 +441,34 @@ export default function EscanearScreen() {
 
       <View style={styles.cameraSection}>
         <CameraStateContainer phase={scannerPhase} onRetry={handleRetryPreparation}>
-          <CameraView
-            style={styles.camera}
-            facing='back'
-            onBarcodeScanned={canScan && scanning ? handleBarCodeScanned : undefined}
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-          >
-            <View style={styles.overlay}>
-              <View style={styles.scanArea}>
-                <View style={[styles.corner, styles.topLeft]} />
-                <View style={[styles.corner, styles.topRight]} />
-                <View style={[styles.corner, styles.bottomLeft]} />
-                <View style={[styles.corner, styles.bottomRight]} />
+          {shouldRenderCamera ? (
+            <CameraView
+              style={styles.camera}
+              facing='back'
+              onBarcodeScanned={canScan && scanning ? handleBarCodeScanned : undefined}
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            >
+              <View style={styles.overlay}>
+                <View style={styles.scanArea}>
+                  <View style={[styles.corner, styles.topLeft]} />
+                  <View style={[styles.corner, styles.topRight]} />
+                  <View style={[styles.corner, styles.bottomLeft]} />
+                  <View style={[styles.corner, styles.bottomRight]} />
+                </View>
+              </View>
+            </CameraView>
+          ) : (
+            <View style={[styles.camera, styles.cameraPlaceholder]}>
+              <View style={styles.overlay}>
+                <View style={styles.scanArea}>
+                  <View style={[styles.corner, styles.topLeft]} />
+                  <View style={[styles.corner, styles.topRight]} />
+                  <View style={[styles.corner, styles.bottomLeft]} />
+                  <View style={[styles.corner, styles.bottomRight]} />
+                </View>
               </View>
             </View>
-          </CameraView>
+          )}
         </CameraStateContainer>
       </View>
 
@@ -595,6 +626,9 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  cameraPlaceholder: {
+    backgroundColor: '#000',
   },
   cameraBadge: {
     position: 'absolute',
