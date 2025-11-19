@@ -508,12 +508,25 @@ export const useAttendanceScanner = ({
           }
         }
 
-        const { data: asistenciaExistente } = await supabase
+        const { data: asistenciaExistenteRows, error: asistenciaExistenteError } = await supabase
           .from('asistencias')
-          .select('*')
+          .select('estado, minutos_tardanza')
           .eq('boleta', scannedBoleta)
           .eq('sesion_id', sesionActiva.id)
-          .single();
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (asistenciaExistenteError) {
+          console.error('[Scanner] Error consultando asistencia existente', {
+            boleta: scannedBoleta,
+            sesionId: sesionActiva.id,
+            errorCode: asistenciaExistenteError.code,
+            errorMessage: asistenciaExistenteError.message,
+          });
+          throw asistenciaExistenteError;
+        }
+
+        const asistenciaExistente = asistenciaExistenteRows?.[0];
 
         if (asistenciaExistente) {
           const nombreDuplicado =

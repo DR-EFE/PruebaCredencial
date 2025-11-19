@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/core/api/supabaseClient';
 
+const institutionalDomains = /@(ucb\.edu\.bo|uab\.edu\.bo)$/;
+
 type RegisterErrors = {
   nombre?: string;
   apellido?: string;
@@ -55,8 +57,8 @@ export default function RegisterScreen() {
     }
     if (!trimmedEmail) {
       nextErrors.email = 'Ingresa tu correo institucional.';
-    } else if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
-      nextErrors.email = 'El correo no tiene un formato valido.';
+    } else if (!institutionalDomains.test(trimmedEmail)) {
+      nextErrors.email = 'El correo debe pertenecer a un dominio institucional valido.';
     }
     if (!password) {
       nextErrors.password = 'Ingresa una contrasena.';
