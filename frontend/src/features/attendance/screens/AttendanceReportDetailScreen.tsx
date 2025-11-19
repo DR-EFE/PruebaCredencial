@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/core/api/supabaseClient';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Ionicons } from '@expo/vector-icons';
 
 
@@ -128,7 +129,7 @@ export default function ReportDetailScreen() {
             </View>
 
             <View style={styles.content}>
-                <Text style={styles.dateText}>{format(new Date(session.fecha), 'EEEE, dd MMMM yyyy')}</Text>
+                <Text style={styles.dateText}>{format(new Date(session.fecha), 'EEEE, dd MMMM yyyy', { locale: es })}</Text>
                 <Text style={styles.topicText}>{session.tema || 'Sin tema'}</Text>
 
                 <View style={styles.chartCard}>

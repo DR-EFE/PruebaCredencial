@@ -11,6 +11,7 @@ import { supabase } from '@/core/api/supabaseClient';
 import { useAuthStore } from '@/core/auth/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import { format, getWeek, getMonth, getYear } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
 
 interface Materia {
@@ -172,7 +173,7 @@ useEffect(() => {
 
   const renderMonthlyReport = ({ item }: { item: MonthlyReport }) => {
     const percentage = item.total_asistencias > 0 ? Math.round(((item.presentes + item.tardanzas) / item.total_asistencias) * 100) : 0;
-    const monthName = format(new Date(item.year, item.month), 'MMMM yyyy');
+    const monthName = format(new Date(item.year, item.month), 'MMMM yyyy', { locale: es });
     return (
       <TouchableOpacity onPress={() => { /* Navigate to monthly detail */ }}>
         <View style={styles.card}>
