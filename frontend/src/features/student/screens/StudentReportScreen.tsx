@@ -127,236 +127,235 @@ export default function StudentReportScreen() {
         title: 'No se pudo cargar el reporte',
         message,
       });
+    } finally {
+      setLoading(false);
+    }
+  }, [boleta, materiaId, notify]);
+
+  useEffect(() => {
+    loadStudentReport();
+  }, [loadStudentReport]);
+
+  if (loading) {
+    return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#800831" />
       </View>
     );
-}
+  }
 
-if (!student || !materia || !attendanceStats) {
-  return (
-    <View style={styles.centerContainer}>
-      <Text>{errorMessage ?? 'No se pudo cargar la informacion.'}</Text>
-    </View>
-  );
-}
+  if (!student || !materia || !attendanceStats) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text>{error ?? 'No se pudo cargar la informacion.'}</Text>
+      </View>
+    );
+  }
 
-const chartData: ChartData[] = [
-  { label: 'Presente', value: attendanceStats.presentes, color: '#10b981' },
-  { label: 'Tardanza', value: attendanceStats.tardanzas, color: '#f59e0b' },
-  { label: 'Falta', value: attendanceStats.faltas, color: '#ef4444' },
-];
-
-const attendanceRate = attendanceStats.totalSesiones
-  ? Math.round((attendanceStats.presentes / attendanceStats.totalSesiones) * 100)
-  : 0;
-const tardinessRate = attendanceStats.totalSesiones
-  ? Math.round((attendanceStats.tardanzas / attendanceStats.totalSesiones) * 100)
-  : 0;
-const absenceRate = attendanceStats.totalSesiones
-  ? Math.round((attendanceStats.faltas / attendanceStats.totalSesiones) * 100)
-  : 0;
-
-const barChartData = chartData.map((item) => ({
-  value: item.value,
-  label: item.label,
-  frontColor: item.color,
-}));
-
-const pieChartData = chartData.map((item) => ({
-  value: item.value,
-  color: item.color,
-  text: `${item.label}`,
-}));
-
-const summaryCards: Array<{
-  label: string;
-  value: number;
-  helper: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  tint: string;
-  iconColor: string;
-}> = [
-    {
-      label: 'Asistencias',
-      value: attendanceStats.presentes,
-      helper: 'Registros presentes',
-      icon: 'checkmark-circle',
-      tint: 'rgba(16,185,129,0.18)',
-      iconColor: '#10b981',
-    },
-    {
-      label: 'Tardanzas',
-      value: attendanceStats.tardanzas,
-      helper: 'Llegadas tarde',
-      icon: 'time',
-      tint: 'rgba(245,158,11,0.18)',
-      iconColor: '#f59e0b',
-    },
-    {
-      label: 'Faltas',
-      value: attendanceStats.faltas,
-      helper: 'Ausencias registradas',
-      icon: 'close-circle',
-      tint: 'rgba(239,68,68,0.15)',
-      iconColor: '#ef4444',
-    },
+  const chartData: ChartData[] = [
+    { label: 'Presente', value: attendanceStats.presentes, color: '#10b981' },
+    { label: 'Tardanza', value: attendanceStats.tardanzas, color: '#f59e0b' },
+    { label: 'Falta', value: attendanceStats.faltas, color: '#ef4444' },
   ];
 
-return (
-  <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="#111827" />
-      </TouchableOpacity>
-      <View style={styles.headerContent}>
-        {student.fotografia ? (
-          <Image source={{ uri: student.fotografia }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={24} color="#fff" />
-          </View>
-        )}
-        <Text style={styles.headerTitle}>{`${student.nombre} ${student.apellido}`}</Text>
-      </View>
-    </View>
+  const attendanceRate = attendanceStats.totalSesiones
+    ? Math.round((attendanceStats.presentes / attendanceStats.totalSesiones) * 100)
+    : 0;
+  const tardinessRate = attendanceStats.totalSesiones
+    ? Math.round((attendanceStats.tardanzas / attendanceStats.totalSesiones) * 100)
+    : 0;
+  const absenceRate = attendanceStats.totalSesiones
+    ? Math.round((attendanceStats.faltas / attendanceStats.totalSesiones) * 100)
+    : 0;
 
-    <View style={styles.content}>
-      <LinearGradient
-        colors={['rgba(128,8,49,0.95)', 'rgba(128,8,49,0.8)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroCard}
-      >
-        <Text style={styles.heroTitle}>Resumen general</Text>
-        <Text style={styles.heroPercent}>{attendanceRate}% de asistencia</Text>
-        <Text style={styles.heroHelper}>
-          {attendanceRate >= 90
-            ? 'Excelente ritmo, sigue asi.'
-            : 'Hay oportunidades para mejorar la asistencia.'}
-        </Text>
-        <View style={styles.heroStatsRow}>
-          <View style={styles.heroStat}>
-            <Text style={styles.heroStatValue}>{tardinessRate}%</Text>
-            <Text style={styles.heroStatLabel}>Tardanzas</Text>
-          </View>
-          <View style={styles.heroDivider} />
-          <View style={styles.heroStat}>
-            <Text style={styles.heroStatValue}>{absenceRate}%</Text>
-            <Text style={styles.heroStatLabel}>Faltas</Text>
-          </View>
-        </View>
-      </LinearGradient>
+  const barChartData = chartData.map((item) => ({
+    value: item.value,
+    label: item.label,
+    frontColor: item.color,
+  }));
 
-      <View style={styles.metaRow}>
-        <View style={styles.metaBadge}>
-          <Ionicons name="id-card-outline" size={14} color="#800831" />
-          <Text style={styles.metaBadgeText}>{student.boleta}</Text>
-        </View>
-        <View style={styles.metaBadge}>
-          <Ionicons name="book-outline" size={14} color="#800831" />
-          <Text style={styles.metaBadgeText}>{materia.nombre}</Text>
-        </View>
-      </View>
+  const pieChartData = chartData.map((item) => ({
+    value: item.value,
+    color: item.color,
+    text: `${item.label}`,
+  }));
 
-      <View style={styles.statsGrid}>
-        {summaryCards.map((card) => (
-          <View key={card.label} style={[styles.statCard, { backgroundColor: card.tint }]}>
-            <View style={styles.statIcon}>
-              <Ionicons name={card.icon} size={20} color={card.iconColor} />
+  const summaryCards: Array<{
+    label: string;
+    value: number;
+    helper: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    tint: string;
+    iconColor: string;
+  }> = [
+      {
+        label: 'Asistencias',
+        value: attendanceStats.presentes,
+        helper: 'Registros presentes',
+        icon: 'checkmark-circle',
+        tint: 'rgba(16,185,129,0.18)',
+        iconColor: '#10b981',
+      },
+      {
+        label: 'Tardanzas',
+        value: attendanceStats.tardanzas,
+        helper: 'Llegadas tarde',
+        icon: 'time',
+        tint: 'rgba(245,158,11,0.18)',
+        iconColor: '#f59e0b',
+      },
+      {
+        label: 'Faltas',
+        value: attendanceStats.faltas,
+        helper: 'Ausencias registradas',
+        icon: 'close-circle',
+        tint: 'rgba(239,68,68,0.15)',
+        iconColor: '#ef4444',
+      },
+    ];
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          {student.fotografia ? (
+            <Image source={{ uri: student.fotografia }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={24} color="#fff" />
             </View>
-            <Text style={styles.statValue}>{card.value}</Text>
-            <Text style={styles.statLabel}>{card.label}</Text>
-            <Text style={styles.statHelper}>{card.helper}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.studentInfoCard}>
-        <Text style={styles.cardTitle}>Informacion Academica</Text>
-        <InfoRow icon="id-card-outline" label="Boleta" value={student.boleta} />
-        <InfoRow icon="school-outline" label="Carrera" value={student.carrera} />
-        <InfoRow icon="business-outline" label="Escuela" value={student.escuela} />
-        <InfoRow icon="time-outline" label="Turno" value={student.turno} />
-        <InfoRow icon="document-text-outline" label="CURP" value={student.curp} />
-      </View>
-
-      <View style={styles.chartCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Resumen de asistencia</Text>
-          <Text style={styles.sectionSubtitle}>{attendanceStats.totalSesiones} sesiones</Text>
+          )}
+          <Text style={styles.headerTitle}>{`${student.nombre} ${student.apellido}`}</Text>
         </View>
-        <BarChart
-          data={barChartData}
-          barWidth={36}
-          spacing={20}
-          roundedTop
-          isAnimated
-          animateOnRender
-          hideYAxisText
-          hideRules
-          yAxisThickness={0}
-          xAxisThickness={0}
-          xAxisLabelTextStyle={styles.chartLabel}
-          disableScroll
-        />
-        <View style={styles.legendRow}>
-          {chartData.map((item) => (
-            <View key={item.label} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-              <Text style={styles.legendText}>
-                {item.label}: {item.value}
-              </Text>
+      </View>
+
+      <View style={styles.content}>
+        <LinearGradient
+          colors={['rgba(128,8,49,0.95)', 'rgba(128,8,49,0.8)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <Text style={styles.heroTitle}>Resumen general</Text>
+          <Text style={styles.heroPercent}>{attendanceRate}% de asistencia</Text>
+          <Text style={styles.heroHelper}>
+            {attendanceRate >= 90
+              ? 'Excelente ritmo, sigue asi.'
+              : 'Hay oportunidades para mejorar la asistencia.'}
+          </Text>
+          <View style={styles.heroStatsRow}>
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatValue}>{tardinessRate}%</Text>
+              <Text style={styles.heroStatLabel}>Tardanzas</Text>
+            </View>
+            <View style={styles.heroDivider} />
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatValue}>{absenceRate}%</Text>
+              <Text style={styles.heroStatLabel}>Faltas</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={styles.metaRow}>
+          <View style={styles.metaBadge}>
+            <Ionicons name="id-card-outline" size={14} color="#800831" />
+            <Text style={styles.metaBadgeText}>{student.boleta}</Text>
+          </View>
+          <View style={styles.metaBadge}>
+            <Ionicons name="book-outline" size={14} color="#800831" />
+            <Text style={styles.metaBadgeText}>{materia.nombre}</Text>
+          </View>
+        </View>
+
+        <View style={styles.statsGrid}>
+          {summaryCards.map((card) => (
+            <View key={card.label} style={[styles.statCard, { backgroundColor: card.tint }]}>
+              <View style={styles.statIcon}>
+                <Ionicons name={card.icon} size={20} color={card.iconColor} />
+              </View>
+              <Text style={styles.statValue}>{card.value}</Text>
+              <Text style={styles.statLabel}>{card.label}</Text>
+              <Text style={styles.statHelper}>{card.helper}</Text>
             </View>
           ))}
         </View>
-      </View>
 
-      <View style={styles.chartCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Distribucion por estado</Text>
-          <Text style={styles.sectionSubtitle}>{attendanceRate}% asistencia</Text>
+        <View style={styles.studentInfoCard}>
+          <Text style={styles.cardTitle}>Informacion Academica</Text>
+          <InfoRow icon="id-card-outline" label="Boleta" value={student.boleta} />
+          <InfoRow icon="school-outline" label="Carrera" value={student.carrera} />
+          <InfoRow icon="business-outline" label="Escuela" value={student.escuela} />
+          <InfoRow icon="time-outline" label="Turno" value={student.turno} />
+          <InfoRow icon="document-text-outline" label="CURP" value={student.curp} />
         </View>
-        <View style={styles.pieRow}>
-          <PieChart
-            data={pieChartData}
-            donut
-            showGradient
-            innerRadius={55}
-            radius={80}
-            focusOnPress={false}
-            centerLabelComponent={() => (
-              <View style={styles.pieCenter}>
-                <Text style={styles.pieCenterValue}>{attendanceRate}%</Text>
-                <Text style={styles.pieCenterLabel}>Asistencia</Text>
-              </View>
-            )}
+
+        <View style={styles.chartCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Resumen de asistencia</Text>
+            <Text style={styles.sectionSubtitle}>{attendanceStats.totalSesiones} sesiones</Text>
+          </View>
+          <BarChart
           />
-          <View style={styles.pieDetails}>
-            <Text style={styles.pieInsightTitle}>Observaciones</Text>
-            <Text style={styles.pieInsightText}>
-              {attendanceRate >= 85
-                ? 'El estudiante mantiene un buen registro de asistencia.'
-                : 'Recomienda reforzar la puntualidad y asistencia en las siguientes sesiones.'}
-            </Text>
-            <View style={styles.pieStats}>
-              <View style={styles.pieStat}>
-                <Text style={styles.pieStatLabel}>Sesiones totales</Text>
-                <Text style={styles.pieStatValue}>{attendanceStats.totalSesiones}</Text>
-              </View>
-              <View style={styles.pieStat}>
-                <Text style={styles.pieStatLabel}>Registros</Text>
-                <Text style={styles.pieStatValue}>
-                  {attendanceStats.presentes + attendanceStats.tardanzas + attendanceStats.faltas}
+          <View style={styles.legendRow}>
+            {chartData.map((item) => (
+              <View key={item.label} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                <Text style={styles.legendText}>
+                  {item.label}: {item.value}
                 </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.chartCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Distribucion por estado</Text>
+            <Text style={styles.sectionSubtitle}>{attendanceRate}% asistencia</Text>
+          </View>
+          <View style={styles.pieRow}>
+            <PieChart
+              data={pieChartData}
+              donut
+              showGradient
+              innerRadius={55}
+              radius={80}
+              focusOnPress={false}
+              centerLabelComponent={() => (
+                <View style={styles.pieCenter}>
+                  <Text style={styles.pieCenterValue}>{attendanceRate}%</Text>
+                  <Text style={styles.pieCenterLabel}>Asistencia</Text>
+                </View>
+              )}
+            />
+            <View style={styles.pieDetails}>
+              <Text style={styles.pieInsightTitle}>Observaciones</Text>
+              <Text style={styles.pieInsightText}>
+                {attendanceRate >= 85
+                  ? 'El estudiante mantiene un buen registro de asistencia.'
+                  : 'Recomienda reforzar la puntualidad y asistencia en las siguientes sesiones.'}
+              </Text>
+              <View style={styles.pieStats}>
+                <View style={styles.pieStat}>
+                  <Text style={styles.pieStatLabel}>Sesiones totales</Text>
+                  <Text style={styles.pieStatValue}>{attendanceStats.totalSesiones}</Text>
+                </View>
+                <View style={styles.pieStat}>
+                  <Text style={styles.pieStatLabel}>Registros</Text>
+                  <Text style={styles.pieStatValue}>
+                    {attendanceStats.presentes + attendanceStats.tardanzas + attendanceStats.faltas}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
         </View>
       </View>
-    </View>
-  </ScrollView>
-);
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
