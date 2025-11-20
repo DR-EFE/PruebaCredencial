@@ -51,7 +51,7 @@ export default function PerfilScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Ionicons name='person' size={48} color='#2563eb' />
+          <Ionicons name='person' size={48} color='#fff' />
         </View>
         <Text style={styles.name}>
           {profesor?.nombre} {profesor?.apellido}
@@ -62,7 +62,7 @@ export default function PerfilScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Configuracion</Text>
 
-        <TouchableOpacity style={styles.option}>
+        <TouchableOpacity style={styles.option} onPress={() => router.push('/(tabs)/edit-profile')}>
           <View style={styles.optionIcon}>
             <Ionicons name='person-outline' size={24} color='#6b7280' />
           </View>
@@ -73,16 +73,7 @@ export default function PerfilScreen() {
           <Ionicons name='chevron-forward' size={20} color='#9ca3af' />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.option}>
-          <View style={styles.optionIcon}>
-            <Ionicons name='notifications-outline' size={24} color='#6b7280' />
-          </View>
-          <View style={styles.optionContent}>
-            <Text style={styles.optionTitle}>Notificaciones</Text>
-            <Text style={styles.optionSubtitle}>Configura alertas y recordatorios</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#9ca3af' />
-        </TouchableOpacity>
+       
 
         <TouchableOpacity style={styles.option} onPress={() => router.push('/(auth)/change-password')}>
           <View style={styles.optionIcon}>
@@ -151,7 +142,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -239,3 +230,4 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
 });
+

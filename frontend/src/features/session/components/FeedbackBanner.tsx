@@ -12,11 +12,18 @@ export interface FeedbackBannerProps {
 
 const STYLE_MAP: Record<
   FeedbackType,
-  { container: { backgroundColor: string; borderColor: string }; icon: { name: React.ComponentProps<typeof Ionicons>['name']; color: string } }
+  {
+    container: { backgroundColor: string; borderColor: string };
+    icon: { name: React.ComponentProps<typeof Ionicons>['name']; color: string };
+    titleColor?: string;
+    messageColor?: string;
+  }
 > = {
   info: {
-    container: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
-    icon: { name: 'information-circle', color: '#2563eb' },
+    container: { backgroundColor: '#800831', borderColor: '#800831' },
+    icon: { name: 'information-circle', color: '#ffffff' },
+    titleColor: '#ffffff',
+    messageColor: 'rgba(255,255,255,0.85)',
   },
   success: {
     container: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0' },
@@ -44,8 +51,12 @@ export const FeedbackBanner = ({ type, title, message }: FeedbackBannerProps) =>
     >
       <Ionicons name={variant.icon.name} size={20} color={variant.icon.color} style={styles.icon} />
       <View style={styles.texts}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.message} numberOfLines={2} ellipsizeMode="tail">
+        <Text style={[styles.title, variant.titleColor && { color: variant.titleColor }]}>{title}</Text>
+        <Text
+          style={[styles.message, variant.messageColor && { color: variant.messageColor }]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
           {message}
         </Text>
       </View>
@@ -82,3 +93,4 @@ const styles = StyleSheet.create({
 });
 
 export default FeedbackBanner;
+

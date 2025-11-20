@@ -114,9 +114,9 @@ export default function LoginScreen() {
       style={styles.container}
     >
       <View style={styles.content}>
-        <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Ionicons name='school' size={64} color='#2563eb' />
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+            <Ionicons name='school' size={64} color='#fff' />
           </View>
           <Text style={styles.title}>UPIICSA Asistencia</Text>
           <Text style={styles.subtitle}>Sistema de Registro Docente</Text>
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -268,12 +268,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   forgotPasswordText: {
-    color: '#2563eb',
+    color: '#800831',
     fontSize: 14,
     fontWeight: '500',
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   registerLink: {
-    color: '#2563eb',
+    color: '#800831',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -318,3 +318,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

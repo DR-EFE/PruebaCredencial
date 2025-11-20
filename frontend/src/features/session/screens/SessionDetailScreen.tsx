@@ -235,7 +235,7 @@ export default function MateriaDetalleScreen() {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color="#800831" />
         </View>
       ) : (
         <FlatList
@@ -261,7 +261,7 @@ export default function MateriaDetalleScreen() {
             </View>
           }
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#800831" />
           }
         />
       )}
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -357,3 +357,4 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 });
+

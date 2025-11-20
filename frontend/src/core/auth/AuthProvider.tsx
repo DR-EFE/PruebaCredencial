@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setProfesor(profesor);
       }
     } catch (err) {
-      console.error('Error loading or updating professor:', err);
+      console.error('Error al cargar o actualizar el profesor:', err);
       setProfesor(null);
     }
   }, [setProfesor]);
@@ -93,3 +93,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import * as Crypto from 'expo-crypto';
 
@@ -44,7 +44,7 @@ const computeHash = async (payload: string) => {
   try {
     return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, payload);
   } catch (error) {
-    console.warn('No se pudo generar hash de verificaciÃ³n', error);
+    console.warn('No se pudo generar hash de verificación', error);
     return '';
   }
 };
@@ -140,7 +140,7 @@ export const useAttendanceScanner = ({
             setFeedback({
               type: 'error',
               title: 'URL no permitida',
-              message: 'Usa una credencial institucional vÃ¡lida emitida por el IPN.',
+              message: 'Usa una credencial institucional válida emitida por el IPN.',
             });
             resumeScanning(900);
             return;
@@ -161,8 +161,8 @@ export const useAttendanceScanner = ({
         if (!scannedBoleta || !/^\d{10}$/.test(scannedBoleta)) {
           setFeedback({
             type: 'error',
-            title: 'CÃ³digo invÃ¡lido',
-            message: 'No se detectÃ³ una boleta vÃ¡lida dentro del cÃ³digo QR.',
+            title: 'Codigo invalido',
+            message: 'No se detecta una boleta valida dentro del codigo QR.',
           });
           resumeScanning(900);
           return;
@@ -171,7 +171,7 @@ export const useAttendanceScanner = ({
         if (!sesionActiva) {
           setFeedback({
             type: 'warning',
-            title: 'SesiÃ³n no disponible',
+            title: 'Session no disponible',
             message: 'Selecciona una materia para continuar con el pase de lista.',
           });
           resumeScanning(900);
@@ -432,8 +432,8 @@ export const useAttendanceScanner = ({
           });
           setFeedback({
             type: 'error',
-            title: 'Error de InscripciÃ³n',
-            message: 'OcurriÃ³ un error al verificar la inscripciÃ³n del alumno.',
+            title: 'Error de Inscripción',
+            message: 'Ocurrió un error al verificar la inscripción del alumno.',
           });
           resumeScanning(1100);
           return;
@@ -453,7 +453,7 @@ export const useAttendanceScanner = ({
             setFeedback({
               type: 'error',
               title: 'Alumno dado de baja',
-              message: `${nombreReferencia} ya no estÃ¡ inscrito en esta materia.`,
+              message: `${nombreReferencia} ya no esta inscrito en esta materia.`,
             });
             resumeScanning(1500);
             return;
@@ -476,7 +476,7 @@ export const useAttendanceScanner = ({
               throw insertError;
             }
 
-            updateMessages.push('Inscripción creada automáticamente');
+            updateMessages.push('Inscripci�n creada autom�ticamente');
             console.log('[Scanner] Inscripcion creada correctamente', {
               boleta: scannedBoleta,
               materiaId: sesionActiva.materia_id,
@@ -498,9 +498,9 @@ export const useAttendanceScanner = ({
 
             setFeedback({
               type: 'error',
-              title: isDuplicate ? 'Alumno dado de baja' : 'Error de Inscripción',
+              title: isDuplicate ? 'Alumno dado de baja' : 'Error de Inscripci�n',
               message: isDuplicate
-                ? `${nombreReferencia} tiene una inscripci?n inactiva. Reinscr?belo antes de pasar lista.`
+                ? `${nombreReferencia} tiene una inscripcion inactiva. Reinscribelo antes de pasar lista.`
                 : `No se pudo inscribir a ${nombreReferencia} en la materia.`,
             });
             resumeScanning(1500);
@@ -562,7 +562,7 @@ export const useAttendanceScanner = ({
           setFeedback({
             type: 'error',
             title: 'Clase no iniciada o terminada',
-            message: `No se puede registrar, la clase de ${duracionClase} min ya finalizÃ³ o no ha empezado.`,
+            message: `No se puede registrar, la clase de ${duracionClase} min ya finalizo o no ha empezado.`,
           });
           resumeScanning(1500);
           return;
@@ -597,7 +597,7 @@ export const useAttendanceScanner = ({
         }
 
         const updateSummary =
-          updateMessages.length > 0 ? updateMessages.join(' Â· ') : null;
+          updateMessages.length > 0 ? updateMessages.join(' · ') : null;
 
         const nombreCompletoDb =
           `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.trim() ||
@@ -619,7 +619,7 @@ export const useAttendanceScanner = ({
         const baseMessage =
           estado === 'presente'
             ? `${nombreCompletoDb} registrado como presente.`
-            : `${nombreCompletoDb} llegÃ³ con ${minutosTardanza} minutos de tardanza.`;
+            : `${nombreCompletoDb} llegó con ${minutosTardanza} minutos de tardanza.`;
 
         const detailMessage = updateSummary ? `${baseMessage}\n${updateSummary}` : baseMessage;
 
@@ -670,4 +670,5 @@ export const useAttendanceScanner = ({
     handleBarCodeScanned,
   };
 };
+
 

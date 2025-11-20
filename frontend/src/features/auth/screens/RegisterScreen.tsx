@@ -141,10 +141,10 @@ export default function RegisterScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps='handled'>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={loading}>
-            <Ionicons name='arrow-back' size={24} color='#2563eb' />
+            <Ionicons name='arrow-back' size={24} color='#800831' />
           </TouchableOpacity>
           <View style={styles.iconContainer}>
-            <Ionicons name='person-add' size={48} color='#2563eb' />
+            <Ionicons name='person-add' size={48} color='#fff' />
           </View>
           <Text style={styles.title}>Registro de Profesor</Text>
           <Text style={styles.subtitle}>
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#800831',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#800831',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginLinkText: {
-    color: '#2563eb',
+    color: '#800831',
     fontSize: 14,
     fontWeight: '500',
   },
