@@ -180,7 +180,7 @@ export default function SessionEnrollmentScreen() {
             notify({
               type: 'warning',
               title: 'Se importaron con observaciones',
-              message: `Se detectaron ${issues}. Solo se cargar�n las boletas v�lidas.`,
+              message: `Se detectaron ${issues}. Solo se cargarn las boletas vlidas.`,
             });
           } else {
             notify({
@@ -217,122 +217,6 @@ export default function SessionEnrollmentScreen() {
       });
     }
   };
-
-
-    try {
-      const result = await DocumentPicker.getDocumentAsync({ type: "text/csv" });
-      if (result.canceled) {
-        return;
-      }
-
-      const asset = result.assets?.[0];
-      if (!asset) {
-        notify({
-          type: "error",
-          title: "No se pudo leer el archivo",
-          message: "Intenta seleccionar el CSV nuevamente.",
-        });
-        return;
-      }
-
-      showLoader("Procesando archivo...");
-      loaderVisible = true;
-      const fileContent = await readCsvFileContent(asset.uri);
-
-      Papa.parse(fileContent, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (parseResult) => {
-          safeHideLoader();
-          const rows = Array.isArray(parseResult.data) ? parseResult.data : [];
-          const seen = new Set<string>();
-          const valid: string[] = [];
-          const invalid: string[] = [];
-          const duplicates: string[] = [];
-
-          rows.forEach((row: any) => {
-            const rawBoleta = typeof row?.boleta === "string" ? row.boleta.trim() : "";
-            if (!rawBoleta) {
-              return;
-            }
-
-            if (!isValidBoleta(rawBoleta)) {
-              invalid.push(rawBoleta);
-              return;
-            }
-
-            if (seen.has(rawBoleta)) {
-              duplicates.push(rawBoleta);
-              return;
-            }
-
-            seen.add(rawBoleta);
-            valid.push(rawBoleta);
-          });
-
-          setFileName(asset.name);
-          setNewAlumnos(valid.map((boleta) => ({ boleta })));
-          setInvalidBoletas(invalid);
-          setDuplicateBoletas(duplicates);
-
-          if (valid.length === 0) {
-            notify({
-              type: "error",
-              title: "No se detectaron boletas validas",
-              message: "Confirma que la columna se llama "boleta" y que cada valor tiene 10 digitos.",
-            });
-            return;
-          }
-
-          if (invalid.length > 0 || duplicates.length > 0) {
-            const issues = [
-              invalid.length > 0 ? `${invalid.length} con formato incorrecto` : null,
-              duplicates.length > 0 ? `${duplicates.length} duplicadas` : null,
-            ]
-              .filter(Boolean)
-              .join(" y ");
-
-            notify({
-              type: "warning",
-              title: "Se importaron con observaciones",
-              message: `Se detectaron ${issues}. Solo se cargar�n las boletas v�lidas.`,
-            });
-          } else {
-            notify({
-              type: "success",
-              title: "CSV procesado",
-              message: `${valid.length} boletas listas para inscribir.`,
-            });
-          }
-        },
-        error: (parseError) => {
-          safeHideLoader();
-          console.error("[Inscripciones] Error procesando CSV", parseError);
-          const message =
-            parseError && typeof parseError.message === "string" && parseError.message.trim().length > 0
-              ? parseError.message
-              : "Verifica que el archivo sea un CSV con cabecera "boleta".";
-          notify({
-            type: "error",
-            title: "No se pudo procesar el CSV",
-            message,
-          });
-        },
-      });
-    } catch (error) {
-      safeHideLoader();
-      console.error("[Inscripciones] Error leyendo archivo CSV", error);
-      notify({
-        type: "error",
-        title: "No se pudo leer el archivo",
-        message:
-          error instanceof Error && error.message
-            ? error.message
-            : "Confirma los permisos del archivo e intenta nuevamente.",
-      });
-    }
-  };
-
 
   const handleRemoveBoleta = (boleta: string) => {
     setNewAlumnos((prev) => prev.filter((alumno) => alumno.boleta !== boleta));
