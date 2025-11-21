@@ -127,6 +127,7 @@ export default function StudentReportScreen() {
         title: 'No se pudo cargar el reporte',
         message,
       });
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -147,7 +148,11 @@ export default function StudentReportScreen() {
   if (!student || !materia || !attendanceStats) {
     return (
       <View style={styles.centerContainer}>
-        <Text>{error ?? 'No se pudo cargar la informacion.'}</Text>
+        <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+        <Text style={styles.errorText}>{error ?? 'No se pudo cargar la informacion.'}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadStudentReport}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -647,6 +652,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginTop: 6,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#800831',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
 
