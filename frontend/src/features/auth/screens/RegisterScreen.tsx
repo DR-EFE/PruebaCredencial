@@ -1,18 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/core/api/supabaseClient';
+import { Screen } from '@/ui/components/Screen';
+import { Text } from '@/ui/components/Text';
+import { Input } from '@/ui/components/Input';
+import { Button } from '@/ui/components/Button';
+import { theme } from '@/ui/theme';
 
 const institutionalDomains = /@(ucb\.edu\.bo|uab\.edu\.bo)$/;
 
@@ -37,8 +32,6 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<RegisterErrors>({});
   const [status, setStatus] = useState<StatusMessage>(null);
 
@@ -121,10 +114,13 @@ export default function RegisterScreen() {
         <Ionicons
           name={isError ? 'alert-circle' : 'checkmark-circle'}
           size={18}
-          color={isError ? '#b91c1c' : '#047857'}
+          color={isError ? theme.colors.error : theme.colors.success}
           style={styles.statusIcon}
         />
-        <Text style={[styles.statusText, isError ? styles.statusTextError : styles.statusTextSuccess]}>
+        <Text
+          variant="body"
+          style={{ flex: 1, color: isError ? theme.colors.error : theme.colors.success, fontWeight: '600' }}
+        >
           {status.message}
         </Text>
       </View>
@@ -134,208 +130,175 @@ export default function RegisterScreen() {
   const disableInputs = loading || (status?.type === 'success');
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps='handled'>
+    <Screen style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} disabled={loading}>
-            <Ionicons name='arrow-back' size={24} color='#800831' />
-          </TouchableOpacity>
+          <Button
+            title=""
+            variant="ghost"
+            leftIcon={<Ionicons name="arrow-back" size={24} color={theme.colors.primary} />}
+            onPress={() => router.back()}
+            disabled={loading}
+            style={styles.backButton}
+          />
           <View style={styles.iconContainer}>
-            <Ionicons name='person-add' size={48} color='#fff' />
+            <Ionicons name="person-add" size={48} color={theme.colors.text.inverse} />
           </View>
-          <Text style={styles.title}>Registro de Profesor</Text>
-          <Text style={styles.subtitle}>
+          <Text variant="h2" align="center" style={styles.title}>
+            Registro de Profesor
+          </Text>
+          <Text variant="body" color={theme.colors.text.secondary} align="center">
             Completa la informacion requerida para crear tu cuenta en el sistema.
           </Text>
         </View>
 
         <View style={styles.form}>
           {renderStatus()}
-          <View style={styles.inputContainer}>
-            <Ionicons name='person-outline' size={20} color='#6b7280' style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder='Nombre(s)'
-              value={nombre}
-              onChangeText={(value) => {
-                setNombre(value);
-                if (errors.nombre) setErrors((prev) => ({ ...prev, nombre: undefined }));
-              }}
-              autoCapitalize='words'
-              editable={!disableInputs}
-              returnKeyType='next'
-            />
-          </View>
-          {errors.nombre ? <Text style={styles.errorText}>{errors.nombre}</Text> : null}
 
-          <View style={styles.inputContainer}>
-            <Ionicons name='people-outline' size={20} color='#6b7280' style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder='Apellido(s)'
-              value={apellido}
-              onChangeText={(value) => {
-                setApellido(value);
-                if (errors.apellido) setErrors((prev) => ({ ...prev, apellido: undefined }));
-              }}
-              autoCapitalize='words'
-              editable={!disableInputs}
-              returnKeyType='next'
-            />
-          </View>
-          {errors.apellido ? <Text style={styles.errorText}>{errors.apellido}</Text> : null}
+          <Input
+            label="Nombre(s)"
+            placeholder="Nombre(s)"
+            value={nombre}
+            onChangeText={(value) => {
+              setNombre(value);
+              if (errors.nombre) setErrors((prev) => ({ ...prev, nombre: undefined }));
+            }}
+            autoCapitalize="words"
+            editable={!disableInputs}
+            returnKeyType="next"
+            leftIcon="person-outline"
+            error={errors.nombre}
+          />
 
-          <View style={styles.inputContainer}>
-            <Ionicons name='mail-outline' size={20} color='#6b7280' style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder='Correo institucional'
-              value={email}
-              onChangeText={(value) => {
-                setEmail(value);
-                if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-              }}
-              autoCapitalize='none'
-              keyboardType='email-address'
-              editable={!disableInputs}
-              returnKeyType='next'
-            />
-          </View>
-          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+          <Input
+            label="Apellido(s)"
+            placeholder="Apellido(s)"
+            value={apellido}
+            onChangeText={(value) => {
+              setApellido(value);
+              if (errors.apellido) setErrors((prev) => ({ ...prev, apellido: undefined }));
+            }}
+            autoCapitalize="words"
+            editable={!disableInputs}
+            returnKeyType="next"
+            leftIcon="people-outline"
+            error={errors.apellido}
+          />
 
-          <View style={styles.inputContainer}>
-            <Ionicons name='lock-closed-outline' size={20} color='#6b7280' style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder='Contrasena'
-              value={password}
-              onChangeText={(value) => {
-                setPassword(value);
-                if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
-              }}
-              secureTextEntry={!showPassword}
-              editable={!disableInputs}
-              returnKeyType='next'
-            />
-            <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.eyeIcon} disabled={disableInputs}>
-              <Ionicons
-                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                size={20}
-                color='#6b7280'
-              />
-            </TouchableOpacity>
-          </View>
-          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+          <Input
+            label="Correo institucional"
+            placeholder="Correo institucional"
+            value={email}
+            onChangeText={(value) => {
+              setEmail(value);
+              if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+            }}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!disableInputs}
+            returnKeyType="next"
+            leftIcon="mail-outline"
+            error={errors.email}
+          />
 
-          <View style={styles.inputContainer}>
-            <Ionicons name='shield-checkmark-outline' size={20} color='#6b7280' style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder='Confirma tu contrasena'
-              value={confirmPassword}
-              onChangeText={(value) => {
-                setConfirmPassword(value);
-                if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
-              }}
-              secureTextEntry={!showConfirmPassword}
-              editable={!disableInputs}
-            />
-            <TouchableOpacity onPress={() => setShowConfirmPassword((prev) => !prev)} style={styles.eyeIcon} disabled={disableInputs}>
-              <Ionicons
-                name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
-                size={20}
-                color='#6b7280'
-              />
-            </TouchableOpacity>
-          </View>
-          {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+          <Input
+            label="Contrasena"
+            placeholder="Contrasena"
+            value={password}
+            onChangeText={(value) => {
+              setPassword(value);
+              if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+            }}
+            secureTextEntry
+            editable={!disableInputs}
+            returnKeyType="next"
+            leftIcon="lock-closed-outline"
+            error={errors.password}
+          />
 
-          <TouchableOpacity
-            style={[styles.button, (loading || status?.type === 'success') && styles.buttonDisabled]}
+          <Input
+            label="Confirma tu contrasena"
+            placeholder="Confirma tu contrasena"
+            value={confirmPassword}
+            onChangeText={(value) => {
+              setConfirmPassword(value);
+              if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+            }}
+            secureTextEntry
+            editable={!disableInputs}
+            leftIcon="shield-checkmark-outline"
+            error={errors.confirmPassword}
+          />
+
+          <Button
+            title="Crear cuenta"
             onPress={handleRegister}
+            loading={loading}
             disabled={loading || status?.type === 'success'}
-          >
-            {loading ? (
-              <ActivityIndicator color='#fff' />
-            ) : (
-              <Text style={styles.buttonText}>Crear cuenta</Text>
-            )}
-          </TouchableOpacity>
+            style={styles.registerButton}
+          />
 
-          <TouchableOpacity
-            style={styles.loginLink}
+          <Button
+            title="¿Ya tienes una cuenta? Inicia sesion"
+            variant="ghost"
             onPress={() => router.replace('/(auth)/login')}
             disabled={loading}
-          >
-            <Text style={styles.loginLinkText}>¿Ya tienes una cuenta? Inicia sesion</Text>
-          </TouchableOpacity>
+            style={styles.loginLink}
+            textStyle={{ fontSize: 14, color: theme.colors.primary }}
+          />
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
+    paddingHorizontal: 0,
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: theme.spacing.l,
+    paddingVertical: theme.spacing.xl,
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: theme.spacing.xl,
   },
   backButton: {
     alignSelf: 'flex-start',
-    padding: 8,
-    marginBottom: 12,
+    padding: 0,
+    marginBottom: theme.spacing.s,
+    height: 40,
+    width: 40,
+    paddingHorizontal: 0,
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#800831',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: theme.spacing.m,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
+    marginBottom: theme.spacing.s,
   },
   form: {
-    marginTop: 8,
+    marginTop: theme.spacing.s,
   },
   statusBanner: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: theme.spacing.s + 4,
+    paddingVertical: theme.spacing.s,
+    paddingHorizontal: theme.spacing.m,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: theme.spacing.m,
   },
   statusIcon: {
-    marginRight: 10,
-  },
-  statusText: {
-    fontSize: 14,
-    flex: 1,
+    marginRight: theme.spacing.s,
   },
   statusError: {
     backgroundColor: '#fee2e2',
@@ -343,67 +306,10 @@ const styles = StyleSheet.create({
   statusSuccess: {
     backgroundColor: '#dcfce7',
   },
-  statusTextError: {
-    color: '#b91c1c',
-    fontWeight: '600',
-  },
-  statusTextSuccess: {
-    color: '#047857',
-    fontWeight: '600',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    minHeight: 56,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111827',
-    paddingVertical: 12,
-  },
-  eyeIcon: {
-    padding: 8,
-  },
-  errorText: {
-    color: '#b91c1c',
-    fontSize: 12,
-    marginTop: -8,
-    marginBottom: 12,
-    marginLeft: 4,
-  },
-  button: {
-    backgroundColor: '#800831',
-    borderRadius: 12,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  registerButton: {
+    marginTop: theme.spacing.s,
   },
   loginLink: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  loginLinkText: {
-    color: '#800831',
-    fontSize: 14,
-    fontWeight: '500',
+    marginTop: theme.spacing.m,
   },
 });
