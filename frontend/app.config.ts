@@ -18,8 +18,8 @@ const resolveSecret = (key: string, env: AppEnv): string => {
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const appEnv = getAppEnv();
-  const supabaseUrl = resolveSecret('SUPABASE_URL', appEnv);
-  const supabaseAnonKey = resolveSecret('SUPABASE_ANON_KEY', appEnv);
+  const supabaseUrl = resolveSecret('SUPABASE_URL', appEnv) || (config.extra?.supabaseUrl as string);
+  const supabaseAnonKey = resolveSecret('SUPABASE_ANON_KEY', appEnv) || (config.extra?.supabaseAnonKey as string);
   const publicBackendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
 
   return {
