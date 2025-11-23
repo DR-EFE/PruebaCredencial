@@ -114,6 +114,7 @@ export const useAttendanceScanner = ({
         return;
       }
 
+      let scannedBoleta: string | null = null;
       setProcessing(true);
       setScanning(false);
       setFeedback({
@@ -124,7 +125,6 @@ export const useAttendanceScanner = ({
 
       try {
         const rawContent = data.trim();
-        let scannedBoleta: string | null = null;
         let scrapedProfile: ScrapedStudent | null = null;
         let verificationHash = '';
         let parsedUrl: URL | null = null;
@@ -476,7 +476,7 @@ export const useAttendanceScanner = ({
               throw insertError;
             }
 
-            updateMessages.push('Inscripción creada automáticamente');
+            updateMessages.push('Inscripciï¿½n creada automï¿½ticamente');
             console.log('[Scanner] Inscripcion creada correctamente', {
               boleta: scannedBoleta,
               materiaId: sesionActiva.materia_id,
@@ -498,7 +498,7 @@ export const useAttendanceScanner = ({
 
             setFeedback({
               type: 'error',
-              title: isDuplicate ? 'Alumno dado de baja' : 'Error de Inscripción',
+              title: isDuplicate ? 'Alumno dado de baja' : 'Error de Inscripciï¿½n',
               message: isDuplicate
                 ? `${nombreReferencia} tiene una inscripcion inactiva. Reinscribelo antes de pasar lista.`
                 : `No se pudo inscribir a ${nombreReferencia} en la materia.`,

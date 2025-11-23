@@ -12,7 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import Papa from 'papaparse';
 
 import { supabase } from '@/core/api/supabaseClient';
@@ -34,11 +34,11 @@ const readCsvFileContent = async (uri: string) => {
   }
 
   if (uri.startsWith('content://')) {
-    const target = `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory}csv-upload-${Date.now()}.csv`;
+    const target = `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}csv-upload-${Date.now()}.csv`;
     try {
       await FileSystem.copyAsync({ from: uri, to: target });
       const content = await FileSystem.readAsStringAsync(target, {
-        encoding: FileSystem.EncodingType.UTF8,
+        encoding: 'utf8',
       });
       return content;
     } finally {
@@ -52,7 +52,7 @@ const readCsvFileContent = async (uri: string) => {
 
   if (uri.startsWith('file://')) {
     return FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.UTF8,
+      encoding: 'utf8',
     });
   }
 
@@ -124,18 +124,33 @@ export default function SessionEnrollmentScreen() {
       loaderVisible = true;
       const fileContent = await readCsvFileContent(asset.uri);
 
-      Papa.parse(fileContent, {
+      const parseConfig: Papa.ParseConfig<Record<string, unknown>> = {
         header: true,
         skipEmptyLines: true,
         complete: (parseResult) => {
           safeHideLoader();
+
+          if (parseResult.errors?.length) {
+            const firstError = parseResult.errors[0];
+            const message =
+              firstError && typeof firstError.message === 'string' && firstError.message.trim().length > 0
+                ? firstError.message
+                : 'Verifica que el archivo sea un CSV con cabecera "boleta".';
+            notify({
+              type: 'error',
+              title: 'No se pudo procesar el CSV',
+              message,
+            });
+            return;
+          }
+
           const rows = Array.isArray(parseResult.data) ? parseResult.data : [];
           const seen = new Set<string>();
           const valid: string[] = [];
           const invalid: string[] = [];
           const duplicates: string[] = [];
 
-          rows.forEach((row: any) => {
+          rows.forEach((row: Record<string, unknown>) => {
             const rawBoleta = typeof row?.boleta === 'string' ? row.boleta.trim() : '';
             if (!rawBoleta) {
               return;
@@ -190,20 +205,9 @@ export default function SessionEnrollmentScreen() {
             });
           }
         },
-        error: (parseError) => {
-          safeHideLoader();
-          console.error('[Inscripciones] Error procesando CSV', parseError);
-          const message =
-            parseError && typeof parseError.message === 'string' && parseError.message.trim().length > 0
-              ? parseError.message
-              : 'Verifica que el archivo sea un CSV con cabecera "boleta".';
-          notify({
-            type: 'error',
-            title: 'No se pudo procesar el CSV',
-            message,
-          });
-        },
-      });
+      };
+
+      Papa.parse<Record<string, unknown>>(fileContent, parseConfig);
     } catch (error) {
       safeHideLoader();
       console.error('[Inscripciones] Error leyendo archivo CSV', error);

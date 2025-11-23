@@ -90,7 +90,7 @@ const STYLE_MAP: Record<
 export const AppNotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loader, setLoader] = useState<LoaderState>({ visible: false });
-  const timeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const timeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const scheduleRemoval = useCallback((id: string, duration: number) => {
     if (timeoutsRef.current[id]) {

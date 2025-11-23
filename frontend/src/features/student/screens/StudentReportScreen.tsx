@@ -51,6 +51,15 @@ type Asistencia = {
   estado: string;
 };
 
+interface SummaryCard {
+  label: string;
+  value: number;
+  helper: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  iconColor: string;
+}
+
 const InfoRow = ({ icon, label, value }: InfoRowProps) => (
   <View style={styles.infoRow}>
     <Ionicons name={icon} size={20} color="#6b7280" style={styles.infoIcon} />
@@ -175,7 +184,7 @@ export default function StudentReportScreen() {
     text: `${item.label}`,
   }));
 
-  const summaryCards = [
+  const summaryCards: SummaryCard[] = [
     {
       label: 'Asistencias',
       value: attendanceStats.presentes,
