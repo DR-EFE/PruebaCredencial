@@ -105,7 +105,11 @@ export default function SessionEnrollmentScreen() {
     };
 
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: 'text/csv' });
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
       if (result.canceled) {
         return;
       }
@@ -120,12 +124,22 @@ export default function SessionEnrollmentScreen() {
         return;
       }
 
+      if (!asset.name.toLowerCase().endsWith('.csv')) {
+        notify({
+          type: 'error',
+          title: 'Archivo incorrecto',
+          message: 'Por favor selecciona un archivo con extensión .csv',
+        });
+        return;
+      }
+
       showLoader('Procesando archivo...');
       loaderVisible = true;
       const fileContent = await readCsvFileContent(asset.uri);
 
-      const parseConfig: Papa.ParseConfig<Record<string, unknown>> = {
+      Papa.parse(fileContent, {
         header: true,
+        delimiter: ',',
         skipEmptyLines: true,
         complete: (parseResult) => {
           safeHideLoader();
@@ -150,7 +164,7 @@ export default function SessionEnrollmentScreen() {
           const invalid: string[] = [];
           const duplicates: string[] = [];
 
-          rows.forEach((row: Record<string, unknown>) => {
+          rows.forEach((row: any) => {
             const rawBoleta = typeof row?.boleta === 'string' ? row.boleta.trim() : '';
             if (!rawBoleta) {
               return;
@@ -195,7 +209,7 @@ export default function SessionEnrollmentScreen() {
             notify({
               type: 'warning',
               title: 'Se importaron con observaciones',
-              message: `Se detectaron ${issues}. Solo se cargarn las boletas vlidas.`,
+              message: `Se detectaron ${issues}. Solo se cargarán las boletas válidas.`,
             });
           } else {
             notify({
@@ -205,9 +219,20 @@ export default function SessionEnrollmentScreen() {
             });
           }
         },
-      };
-
-      Papa.parse<Record<string, unknown>>(fileContent, parseConfig);
+        error: (parseError) => {
+          safeHideLoader();
+          console.error('[Inscripciones] Error procesando CSV', parseError);
+          const message =
+            parseError && typeof parseError.message === 'string' && parseError.message.trim().length > 0
+              ? parseError.message
+              : 'Verifica que el archivo sea un CSV con cabecera "boleta".';
+          notify({
+            type: 'error',
+            title: 'No se pudo procesar el CSV',
+            message,
+          });
+        },
+      });
     } catch (error) {
       safeHideLoader();
       console.error('[Inscripciones] Error leyendo archivo CSV', error);
@@ -418,89 +443,93 @@ export default function SessionEnrollmentScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {activeTab === 'csv' ? (
-          <View style={styles.contentContainer}>
-            <Text style={styles.sectionTitle}>Importar alumnos desde CSV</Text>
+      {activeTab === 'csv' ? (
+        <FlatList
+          data={newAlumnos}
+          keyExtractor={(item) => item.boleta}
+          renderItem={renderBoletaItem}
+          contentContainerStyle={styles.scrollContent}
+          ListHeaderComponent={
+            <View style={styles.contentContainer}>
+              <Text style={styles.sectionTitle}>Importar alumnos desde CSV</Text>
 
-            <View style={styles.instructionsBox}>
-              <Text style={styles.instructionsTitle}>Antes de importar:</Text>
-              {instructions.map((item) => (
-                <View key={item} style={styles.instructionsRow}>
-                  <Ionicons name='checkmark-circle' size={16} color='#800831' />
-                  <Text style={styles.instructionsText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.filePickerContainer}>
-              <TouchableOpacity
-                style={styles.filePickerButton}
-                onPress={handleFilePick}
-                disabled={isSaving}
-              >
-                <Ionicons name='cloud-upload-outline' size={22} color='#800831' />
-                <Text style={styles.filePickerButtonText}>Seleccionar archivo CSV</Text>
-              </TouchableOpacity>
-              {fileName ? (
-                <View style={styles.fileInfoContainer}>
-                  <View style={styles.fileInfoHeader}>
-                    <Text style={styles.fileNameText}>{fileName}</Text>
-                    <TouchableOpacity onPress={handleClearCsv}>
-                      <Text style={styles.fileClearButton}>Limpiar</Text>
-                    </TouchableOpacity>
+              <View style={styles.instructionsBox}>
+                <Text style={styles.instructionsTitle}>Antes de importar:</Text>
+                {instructions.map((item) => (
+                  <View key={item} style={styles.instructionsRow}>
+                    <Ionicons name='checkmark-circle' size={16} color='#800831' />
+                    <Text style={styles.instructionsText}>{item}</Text>
                   </View>
-                  <Text style={styles.fileInfoText}>
-                    {newAlumnos.length} boletas listas para inscribir.
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.fileEmptyText}>Aun no se selecciona un archivo.</Text>
-              )}
-            </View>
+                ))}
+              </View>
 
-            {newAlumnos.length > 0 ? (
-              <View style={styles.previewContainer}>
+              <View style={styles.filePickerContainer}>
+                <TouchableOpacity
+                  style={styles.filePickerButton}
+                  onPress={handleFilePick}
+                  disabled={isSaving}
+                >
+                  <Ionicons name='cloud-upload-outline' size={22} color='#800831' />
+                  <Text style={styles.filePickerButtonText}>Seleccionar archivo CSV</Text>
+                </TouchableOpacity>
+                {fileName ? (
+                  <View style={styles.fileInfoContainer}>
+                    <View style={styles.fileInfoHeader}>
+                      <Text style={styles.fileNameText}>{fileName}</Text>
+                      <TouchableOpacity onPress={handleClearCsv}>
+                        <Text style={styles.fileClearButton}>Limpiar</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.fileInfoText}>
+                      {newAlumnos.length} boletas listas para inscribir.
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.fileEmptyText}>Aun no se selecciona un archivo.</Text>
+                )}
+              </View>
+
+              {newAlumnos.length > 0 ? (
                 <View style={styles.previewHeader}>
                   <Text style={styles.previewTitle}>Boletas preparadas</Text>
                   <Text style={styles.previewCount}>{newAlumnos.length}</Text>
                 </View>
-                <FlatList
-                  data={newAlumnos}
-                  keyExtractor={(item) => item.boleta}
-                  renderItem={renderBoletaItem}
-                />
-              </View>
-            ) : null}
+              ) : null}
+            </View>
+          }
+          ListFooterComponent={
+            <View style={styles.contentContainer}>
+              {invalidBoletas.length > 0 ? (
+                <View style={styles.issueContainer}>
+                  <Text style={styles.issueTitle}>Formato incorrecto</Text>
+                  <Text style={styles.issueText}>
+                    Revisa las siguientes boletas: {invalidBoletas.slice(0, 8).join(', ')}
+                    {invalidBoletas.length > 8 ? '...' : ''}
+                  </Text>
+                </View>
+              ) : null}
 
-            {invalidBoletas.length > 0 ? (
-              <View style={styles.issueContainer}>
-                <Text style={styles.issueTitle}>Formato incorrecto</Text>
-                <Text style={styles.issueText}>
-                  Revisa las siguientes boletas: {invalidBoletas.slice(0, 8).join(', ')}
-                  {invalidBoletas.length > 8 ? '...' : ''}
-                </Text>
-              </View>
-            ) : null}
+              {duplicateBoletas.length > 0 ? (
+                <View style={styles.issueContainer}>
+                  <Text style={styles.issueTitle}>Duplicados omitidos</Text>
+                  <Text style={styles.issueText}>
+                    Se detectaron {duplicateBoletas.length} boletas repetidas dentro del archivo.
+                  </Text>
+                </View>
+              ) : null}
 
-            {duplicateBoletas.length > 0 ? (
-              <View style={styles.issueContainer}>
-                <Text style={styles.issueTitle}>Duplicados omitidos</Text>
-                <Text style={styles.issueText}>
-                  Se detectaron {duplicateBoletas.length} boletas repetidas dentro del archivo.
-                </Text>
-              </View>
-            ) : null}
-
-            <TouchableOpacity
-              style={[styles.button, (isSaving || newAlumnos.length === 0) && styles.buttonDisabled]}
-              onPress={handleSaveAlumnos}
-              disabled={isSaving || newAlumnos.length === 0}
-            >
-              {isSaving ? <ActivityIndicator color='#fff' /> : <Text style={styles.buttonText}>Inscribir alumnos</Text>}
-            </TouchableOpacity>
-          </View>
-        ) : (
+              <TouchableOpacity
+                style={[styles.button, (isSaving || newAlumnos.length === 0) && styles.buttonDisabled]}
+                onPress={handleSaveAlumnos}
+                disabled={isSaving || newAlumnos.length === 0}
+              >
+                {isSaving ? <ActivityIndicator color='#fff' /> : <Text style={styles.buttonText}>Inscribir alumnos</Text>}
+              </TouchableOpacity>
+            </View>
+          }
+        />
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.contentContainer}>
             <Text style={styles.sectionTitle}>Inscripcion manual</Text>
             <Text style={styles.manualHelper}>Registra una boleta puntual cuando no esta incluida en el CSV.</Text>
@@ -525,8 +554,8 @@ export default function SessionEnrollmentScreen() {
               {isSaving ? <ActivityIndicator color='#fff' /> : <Text style={styles.buttonText}>Inscribir alumno</Text>}
             </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -755,4 +784,3 @@ const styles = StyleSheet.create({
     marginTop: -6,
   },
 });
-
