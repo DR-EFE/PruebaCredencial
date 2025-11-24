@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
+import * as DocumentPicker from 'expo-document-picker'; // Corrected import
 import * as FileSystem from 'expo-file-system/legacy';
 import Papa from 'papaparse';
 
@@ -219,7 +219,7 @@ export default function SessionEnrollmentScreen() {
             });
           }
         },
-        error: (parseError) => {
+        error: (parseError: Error) => {
           safeHideLoader();
           console.error('[Inscripciones] Error procesando CSV', parseError);
           const message =
