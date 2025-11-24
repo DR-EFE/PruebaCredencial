@@ -280,31 +280,61 @@ export default function SessionEnrollmentScreen() {
     setIsSaving(true);
     showLoader('Inscribiendo alumnos...');
     try {
-      const materiaId = parseInt(materia_id as string, 10);
-      const payload = newAlumnos.map((alumno) => ({
-        boleta: alumno.boleta,
-        materia_id: materiaId,
-        estado_inscripcion: 'activa',
-        created_by: profesor.id,
-      }));
+      const materiaId = Number(materia_id);
+      if (!Number.isFinite(materiaId)) {
+        throw new Error('El ID de la materia es inválido.');
+      }
 
-      const { error } = await supabase.from('inscripciones').insert(payload);
+      const boletasToEnroll = newAlumnos.map((a) => a.boleta);
+
+      // Fetch existing inscriptions to avoid duplicates and update inactive ones
+      const { data: existing, error: fetchError } = await supabase
+        .from('inscripciones')
+        .select('boleta, estado_inscripcion')
+        .eq('materia_id', materiaId)
+        .in('boleta', boletasToEnroll);
+
+      if (fetchError) throw fetchError;
+
+      const existingActiveBoletas = new Set(
+        (existing ?? []).filter((e) => e.estado_inscripcion === 'activa').map((e) => e.boleta)
+      );
+
+      const payload = newAlumnos
+        .filter((alumno) => !existingActiveBoletas.has(alumno.boleta))
+        .map((alumno) => ({
+          boleta: alumno.boleta,
+          materia_id: materiaId,
+          estado_inscripcion: 'activa' as const,
+          created_by: profesor.id,
+        }));
+
+      if (payload.length === 0) {
+        notify({
+          type: 'info',
+          title: 'No hay alumnos nuevos que inscribir',
+          message: 'Todos los alumnos del archivo ya se encuentran activos en la materia.',
+        });
+        return;
+      }
+
+      const { error } = await supabase.from('inscripciones').upsert(payload, { onConflict: 'boleta, materia_id' });
       if (error) {
         throw error;
       }
 
       notify({
         type: 'success',
-        title: 'Inscripcion completada',
-        message: `${newAlumnos.length} alumnos fueron inscritos correctamente.`,
+        title: 'Inscripción completada',
+        message: `${payload.length} alumnos fueron inscritos o reactivados correctamente.`,
       });
       handleClearCsv();
     } catch (error: any) {
       console.error('Error saving alumnos:', error);
       notify({
         type: 'error',
-        title: 'No se pudo inscribir',
-        message: error?.message ?? 'Intentalo de nuevo mas tarde.',
+        title: 'No se pudo completar la inscripción',
+        message: error?.message ?? 'Inténtalo de nuevo más tarde.',
       });
     } finally {
       hideLoader();
