@@ -48,8 +48,12 @@ export default function RegisterScreen() {
     if (!trimmedApellido) {
       nextErrors.apellido = 'Ingresa tu apellido.';
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!trimmedEmail) {
       nextErrors.email = 'Ingresa tu correo institucional.';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      nextErrors.email = 'Ingresa un correo electrónico válido.';
     } else if (!institutionalDomains.test(trimmedEmail)) {
       nextErrors.email = 'El correo debe pertenecer a un dominio institucional valido.';
     }

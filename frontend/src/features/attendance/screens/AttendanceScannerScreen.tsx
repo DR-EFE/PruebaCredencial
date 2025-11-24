@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuthStore } from '@/core/auth/useAuthStore';
@@ -19,6 +19,7 @@ import { ScannerStatus } from '../components/ScannerStatus';
 import { useAttendanceScanner } from '../hooks/useAttendanceScanner';
 import { useAttendanceSession } from '../hooks/useAttendanceSession';
 import { AttendanceEntry, ScanFeedback } from '../types';
+import { parseStudentHtml } from '../utils/credentialParsing';
 import { UPIICSA_COLORS } from '../theme';
 
 type ScannerPhase = 'idle' | 'preparing' | 'scanning' | 'offline' | 'error';
@@ -305,7 +306,7 @@ export default function EscanearScreen() {
         title: offline ? 'Sin conexion a internet' : 'No se pudo preparar el escaner',
         message: offline
           ? 'Revisa tu conexion y vuelve a intentar preparar la sesion.'
-          : 'Ocurrio un problema al iniciar la sesion de asistencia. Intenta nuevamente.',
+          : (error instanceof Error ? error.message : 'Ocurrio un problema al iniciar la sesion de asistencia. Intenta nuevamente.'),
       });
       setScanning(false);
     }
@@ -368,7 +369,37 @@ export default function EscanearScreen() {
     };
   }, [scannerPhase, processing, canScan]);
 
-  const activeStatus = feedback ?? defaultStatus;
+  const [localFeedback, setLocalFeedback] = useState<ScanFeedback | null>(null);
+
+  const handleScanWrapper = useCallback(
+    (result: BarcodeScanningResult) => {
+      if (processing) return;
+
+      try {
+        const { boleta } = parseStudentHtml(result.data);
+        const isDuplicate = recentAttendance.some((entry) => entry.boleta === boleta);
+
+        if (isDuplicate) {
+          setLocalFeedback({
+            type: 'warning',
+            title: 'Asistencia duplicada',
+            message: `El estudiante con boleta ${boleta} ya fue registrado.`,
+          });
+          // Clear feedback after a delay
+          setTimeout(() => setLocalFeedback(null), 2000);
+          return;
+        }
+      } catch (error) {
+        // Ignore parsing errors here, let the main handler catch them
+      }
+
+      setLocalFeedback(null);
+      handleBarCodeScanned(result);
+    },
+    [processing, recentAttendance, handleBarCodeScanned]
+  );
+
+  const activeStatus = localFeedback ?? feedback ?? defaultStatus;
   const shouldRenderCamera = isScreenFocused && Boolean(permission?.granted);
 
   if (!permission) {
@@ -473,7 +504,7 @@ export default function EscanearScreen() {
             <CameraView
               style={styles.camera}
               facing='back'
-              onBarcodeScanned={canScan && scanning ? handleBarCodeScanned : undefined}
+              onBarcodeScanned={canScan && scanning ? handleScanWrapper : undefined}
               barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
             >
               <View style={styles.overlay}>

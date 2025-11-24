@@ -192,19 +192,19 @@ export default function ReportesScreen() {
         title: 'No se pudieron cargar los reportes',
         message,
       });
-      setError('No se pudieron cargar los reportes de asistencia. Intenta de nuevo.');
+      setError(message);
     } finally {
       setLoadingReportes(false);
     }
   }, [notify, reportType, selectedMateria]);
 
-useEffect(() => {
-  loadMaterias();
-}, [loadMaterias]);
+  useEffect(() => {
+    loadMaterias();
+  }, [loadMaterias]);
 
-useEffect(() => {
-  loadSesiones();
-}, [loadSesiones]);
+  useEffect(() => {
+    loadSesiones();
+  }, [loadSesiones]);
 
   const renderWeeklyReport = ({ item }: { item: WeeklyReport }) => {
     const percentage = item.total_asistencias > 0 ? Math.round(((item.presentes + item.tardanzas) / item.total_asistencias) * 100) : 0;
@@ -355,18 +355,18 @@ useEffect(() => {
       {/* Selector de materias y tipo de reporte */}
       <View style={styles.selectorContainer}>
         <View style={styles.reportTypeSelector}>
-          <TouchableOpacity 
-            style={[styles.reportTypeButton, reportType === 'sesiones' && styles.reportTypeButtonActive]} 
+          <TouchableOpacity
+            style={[styles.reportTypeButton, reportType === 'sesiones' && styles.reportTypeButtonActive]}
             onPress={() => setReportType('sesiones')}>
             <Text style={[styles.reportTypeButtonText, reportType === 'sesiones' && styles.reportTypeButtonTextActive]}>Sesiones</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.reportTypeButton, reportType === 'semanal' && styles.reportTypeButtonActive]} 
+          <TouchableOpacity
+            style={[styles.reportTypeButton, reportType === 'semanal' && styles.reportTypeButtonActive]}
             onPress={() => setReportType('semanal')}>
             <Text style={[styles.reportTypeButtonText, reportType === 'semanal' && styles.reportTypeButtonTextActive]}>Semanal</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.reportTypeButton, reportType === 'mensual' && styles.reportTypeButtonActive]} 
+          <TouchableOpacity
+            style={[styles.reportTypeButton, reportType === 'mensual' && styles.reportTypeButtonActive]}
             onPress={() => setReportType('mensual')}>
             <Text style={[styles.reportTypeButtonText, reportType === 'mensual' && styles.reportTypeButtonTextActive]}>Mensual</Text>
           </TouchableOpacity>

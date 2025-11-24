@@ -123,38 +123,31 @@ export default function StudentReportScreen() {
         faltas: faltas > 0 ? faltas : 0,
         totalSesiones: totalSesiones ?? 0,
       });
-    } catch (err) {
-      console.error(err);
-      const message = err instanceof Error && err.message ? err.message : 'Intenta nuevamente en unos momentos.';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [boleta, materiaId]);
 
-  useEffect(() => {
-    loadStudentReport();
-  }, [loadStudentReport]);
-
-  if (loading) {
-    return (
+    } catch (error) {
+      console.error(error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Intenta nuevamente en unos momentos.';
+      notify({
+        type: 'error',
+        title: 'No se pudo cargar el reporte',
+        message,
+      });
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#800831" />
       </View>
     );
   }
 
-  if (error) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text>{error}</Text>
-      </View>
-    );
-  }
-
-  if (!student || !materia || !attendanceStats) {
-    return null;
-  }
+if (!student || !materia || !attendanceStats) {
+  return (
+    <View style={styles.centerContainer}>
+      <Text>{errorMessage ?? 'No se pudo cargar la informacion.'}</Text>
+    </View>
+  );
+}
 
   const chartData: ChartData[] = [
     { label: 'Presente', value: attendanceStats.presentes, color: '#10b981' },
@@ -172,19 +165,26 @@ export default function StudentReportScreen() {
     ? Math.round((attendanceStats.faltas / attendanceStats.totalSesiones) * 100)
     : 0;
 
-  const barChartData = chartData.map(item => ({
-    value: item.value,
-    label: item.label,
-    frontColor: item.color,
-  }));
+const barChartData = chartData.map((item) => ({
+  value: item.value,
+  label: item.label,
+  frontColor: item.color,
+}));
 
-  const pieChartData = chartData.map(item => ({
-    value: item.value,
-    color: item.color,
-    text: `${item.label}`,
-  }));
+const pieChartData = chartData.map((item) => ({
+  value: item.value,
+  color: item.color,
+  text: `${item.label}`,
+}));
 
-  const summaryCards: SummaryCard[] = [
+const summaryCards: Array<{
+  label: string;
+  value: number;
+  helper: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  iconColor: string;
+}> = [
     {
       label: 'Asistencias',
       value: attendanceStats.presentes,
@@ -267,18 +267,18 @@ export default function StudentReportScreen() {
           </View>
         </View>
 
-        <View style={styles.statsGrid}>
-          {summaryCards.map(card => (
-            <View key={card.label} style={[styles.statCard, { backgroundColor: card.tint }]}>
-              <View style={styles.statIcon}>
-                <Ionicons name={card.icon} size={20} color={card.iconColor} />
-              </View>
-              <Text style={styles.statValue}>{card.value}</Text>
-              <Text style={styles.statLabel}>{card.label}</Text>
-              <Text style={styles.statHelper}>{card.helper}</Text>
+      <View style={styles.statsGrid}>
+        {summaryCards.map((card) => (
+          <View key={card.label} style={[styles.statCard, { backgroundColor: card.tint }]}>
+            <View style={styles.statIcon}>
+              <Ionicons name={card.icon} size={20} color={card.iconColor} />
             </View>
-          ))}
-        </View>
+            <Text style={styles.statValue}>{card.value}</Text>
+            <Text style={styles.statLabel}>{card.label}</Text>
+            <Text style={styles.statHelper}>{card.helper}</Text>
+          </View>
+        ))}
+      </View>
 
         <View style={styles.studentInfoCard}>
           <Text style={styles.cardTitle}>Informacion Academica</Text>
@@ -289,79 +289,82 @@ export default function StudentReportScreen() {
           <InfoRow icon="document-text-outline" label="CURP" value={student.curp} />
         </View>
 
-        <View style={styles.chartCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Resumen de asistencia</Text>
-            <Text style={styles.sectionSubtitle}>{attendanceStats.totalSesiones} sesiones</Text>
-          </View>
-          <BarChart
-            data={barChartData}
-            barWidth={36}
-            spacing={20}
-            roundedTop
-            isAnimated
-            hideYAxisText
-            hideRules
-            yAxisThickness={0}
-            xAxisThickness={0}
-            xAxisLabelTextStyle={styles.chartLabel}
-            disableScroll
-          />
-          <View style={styles.legendRow}>
-            {chartData.map(item => (
-              <View key={item.label} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-                <Text style={styles.legendText}>{item.label}: {item.value}</Text>
-              </View>
-            ))}
-          </View>
+      <View style={styles.chartCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Resumen de asistencia</Text>
+          <Text style={styles.sectionSubtitle}>{attendanceStats.totalSesiones} sesiones</Text>
         </View>
-
-        <View style={styles.chartCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Distribucion por estado</Text>
-            <Text style={styles.sectionSubtitle}>{attendanceRate}% asistencia</Text>
-          </View>
-          <View style={styles.pieRow}>
-            <PieChart
-              data={pieChartData}
-              donut
-              showGradient
-              innerRadius={55}
-              radius={80}
-              focusOnPress={false}
-              centerLabelComponent={() => (
-                <View style={styles.pieCenter}>
-                  <Text style={styles.pieCenterValue}>{attendanceRate}%</Text>
-                  <Text style={styles.pieCenterLabel}>Asistencia</Text>
-                </View>
-              )}
-            />
-            <View style={styles.pieDetails}>
-              <Text style={styles.pieInsightTitle}>Observaciones</Text>
-              <Text style={styles.pieInsightText}>
-                {attendanceRate >= 85
-                  ? 'El estudiante mantiene un buen registro de asistencia.'
-                  : 'Recomienda reforzar la puntualidad y asistencia en las siguientes sesiones.'}
+        <BarChart
+          data={barChartData}
+          barWidth={36}
+          spacing={20}
+          roundedTop
+          isAnimated
+          animateOnRender
+          hideYAxisText
+          hideRules
+          yAxisThickness={0}
+          xAxisThickness={0}
+          xAxisLabelTextStyle={styles.chartLabel}
+          disableScroll
+        />
+        <View style={styles.legendRow}>
+          {chartData.map((item) => (
+            <View key={item.label} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+              <Text style={styles.legendText}>
+                {item.label}: {item.value}
               </Text>
-              <View style={styles.pieStats}>
-                <View style={styles.pieStat}>
-                  <Text style={styles.pieStatLabel}>Sesiones totales</Text>
-                  <Text style={styles.pieStatValue}>{attendanceStats.totalSesiones}</Text>
-                </View>
-                <View style={styles.pieStat}>
-                  <Text style={styles.pieStatLabel}>Registros</Text>
-                  <Text style={styles.pieStatValue}>
-                    {attendanceStats.presentes + attendanceStats.tardanzas + attendanceStats.faltas}
-                  </Text>
-                </View>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.chartCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Distribucion por estado</Text>
+          <Text style={styles.sectionSubtitle}>{attendanceRate}% asistencia</Text>
+        </View>
+        <View style={styles.pieRow}>
+          <PieChart
+            data={pieChartData}
+            donut
+            showGradient
+            innerRadius={55}
+            radius={80}
+            focusOnPress={false}
+            centerLabelComponent={() => (
+              <View style={styles.pieCenter}>
+                <Text style={styles.pieCenterValue}>{attendanceRate}%</Text>
+                <Text style={styles.pieCenterLabel}>Asistencia</Text>
+              </View>
+            )}
+          />
+          <View style={styles.pieDetails}>
+            <Text style={styles.pieInsightTitle}>Observaciones</Text>
+            <Text style={styles.pieInsightText}>
+              {attendanceRate >= 85
+                ? 'El estudiante mantiene un buen registro de asistencia.'
+                : 'Recomienda reforzar la puntualidad y asistencia en las siguientes sesiones.'}
+            </Text>
+            <View style={styles.pieStats}>
+              <View style={styles.pieStat}>
+                <Text style={styles.pieStatLabel}>Sesiones totales</Text>
+                <Text style={styles.pieStatValue}>{attendanceStats.totalSesiones}</Text>
+              </View>
+              <View style={styles.pieStat}>
+                <Text style={styles.pieStatLabel}>Registros</Text>
+                <Text style={styles.pieStatValue}>
+                  {attendanceStats.presentes + attendanceStats.tardanzas + attendanceStats.faltas}
+                </Text>
               </View>
             </View>
           </View>
         </View>
       </View>
-    </ScrollView >
-  );
+    </View>
+  </ScrollView>
+);
 }
 
 const styles = StyleSheet.create({
@@ -390,50 +393,257 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827', flex: 1 },
-  content: { padding: 20, gap: 20 },
-  heroCard: { borderRadius: 20, padding: 20 },
-  heroTitle: { fontSize: 14, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
-  heroPercent: { fontSize: 32, fontWeight: '700', color: '#fff' },
-  heroHelper: { marginTop: 6, color: 'rgba(248,250,252,0.85)', fontSize: 14 },
-  heroStatsRow: { marginTop: 18, flexDirection: 'row', alignItems: 'center' },
-  heroStat: { flex: 1 },
-  heroStatValue: { fontSize: 22, fontWeight: '700', color: '#fff' },
-  heroStatLabel: { color: 'rgba(248,250,252,0.85)', fontSize: 13, marginTop: 2 },
-  heroDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.35)', marginHorizontal: 18 },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  metaBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: '#e5e7eb', gap: 6 },
-  metaBadgeText: { color: '#800831', fontWeight: '600', fontSize: 13 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  statCard: { flexGrow: 1, minWidth: '48%', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.03)' },
-  statIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  statValue: { fontSize: 26, fontWeight: '700', color: '#111827' },
-  statLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginTop: 4 },
-  statHelper: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: '#111827' },
-  studentInfoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  infoIcon: { marginRight: 12 },
-  infoLabel: { fontSize: 15, color: '#374151', fontWeight: '600' },
-  infoValue: { fontSize: 15, color: '#6b7280', marginLeft: 8, flex: 1 },
-  chartCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, gap: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  sectionSubtitle: { fontSize: 13, color: '#6b7280' },
-  chartLabel: { color: '#6b7280', fontSize: 12, marginTop: 4 },
-  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 13, color: '#374151' },
-  pieRow: { flexDirection: 'row', alignItems: 'center' },
-  pieCenter: { alignItems: 'center', justifyContent: 'center' },
-  pieCenterValue: { fontSize: 22, fontWeight: '700', color: '#111827' },
-  pieCenterLabel: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  pieDetails: { flex: 1, paddingLeft: 16, gap: 10 },
-  pieInsightTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  pieInsightText: { fontSize: 13, color: '#4b5563', lineHeight: 18 },
-  pieStats: { flexDirection: 'row', gap: 16 },
-  pieStat: { flex: 1, backgroundColor: '#f9fafb', borderRadius: 12, padding: 12 },
-  pieStatLabel: { fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5 },
-  pieStatValue: { fontSize: 18, fontWeight: '700', color: '#111827', marginTop: 6 },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+    flex: 1,
+  },
+  content: {
+    padding: 20,
+    gap: 20,
+  },
+  heroCard: {
+    borderRadius: 20,
+    padding: 20,
+  },
+  heroTitle: {
+    fontSize: 14,
+    color: '#f9fafb',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  heroPercent: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  heroHelper: {
+    marginTop: 6,
+    color: 'rgba(248,250,252,0.85)',
+    fontSize: 14,
+  },
+  heroStatsRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroStat: {
+    flex: 1,
+  },
+  heroStatValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  heroStatLabel: {
+    color: 'rgba(248,250,252,0.85)',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  heroDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    marginHorizontal: 18,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  metaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    gap: 6,
+  },
+  metaBadgeText: {
+    color: '#800831',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    flexGrow: 1,
+    minWidth: '48%',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  statLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 4,
+  },
+  statHelper: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#111827',
+  },
+  studentInfoCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoIcon: {
+    marginRight: 12,
+  },
+  infoLabel: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#6b7280',
+    marginLeft: 8,
+    flex: 1,
+  },
+  chartCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  chartLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 13,
+    color: '#374151',
+  },
+  pieRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pieCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pieCenterValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  pieCenterLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  pieDetails: {
+    flex: 1,
+    paddingLeft: 16,
+    gap: 10,
+  },
+  pieInsightTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  pieInsightText: {
+    fontSize: 13,
+    color: '#4b5563',
+    lineHeight: 18,
+  },
+  pieStats: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  pieStat: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 12,
+  },
+  pieStatLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  pieStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 6,
+  },
 });

@@ -89,8 +89,12 @@ export const useAttendanceSession = ({ profesorId }: UseAttendanceSessionOptions
           .eq('dia_semana', isoDayOfWeek)
           .single();
 
-        const duracionClase = horario?.duracion_minutos ?? 90;
-        const horaInicioProgramada = normalizeTimeWithSeconds(horario?.hora_inicio ?? null);
+        if (!horario) {
+          throw new Error('No hay horario oficial programado para este día.');
+        }
+
+        const duracionClase = horario.duracion_minutos ?? 90;
+        const horaInicioProgramada = normalizeTimeWithSeconds(horario.hora_inicio ?? null);
         const today = format(todayDate, 'yyyy-MM-dd');
 
         if (
@@ -106,10 +110,10 @@ export const useAttendanceSession = ({ profesorId }: UseAttendanceSessionOptions
             setSesionActiva((prev) =>
               prev
                 ? {
-                    ...prev,
-                    duracion_minutos: duracionClase,
-                    hora_inicio_programada: horaInicioProgramada,
-                  }
+                  ...prev,
+                  duracion_minutos: duracionClase,
+                  hora_inicio_programada: horaInicioProgramada,
+                }
                 : prev
             );
           }
