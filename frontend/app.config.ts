@@ -44,6 +44,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       permissions: ['android.permission.CAMERA', 'android.permission.RECORD_AUDIO'],
       package: 'com.efe1212.frontend',
     },
+    androidStatusBar: {
+      backgroundColor: '#000',
+    },
     web: {
       bundler: 'metro',
       output: 'static',
@@ -51,6 +54,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       'expo-router',
+
       [
         'expo-splash-screen',
         {

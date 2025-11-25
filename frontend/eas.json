@@ -19,7 +19,7 @@
     },
     "prod": {
       "releaseChannel": "prod",
-      "autoIncrement": "version",
+      "autoIncrement": true,
       "env": {
         "APP_ENV": "prod"
       }
