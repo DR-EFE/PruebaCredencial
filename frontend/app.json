@@ -2,7 +2,7 @@
   "expo": {
     "name": "frontend",
     "slug": "frontend",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "frontend",
@@ -64,11 +64,12 @@
       },
       "router": {},
       "eas": {
-        "projectId": "fa4512ec-4554-41ab-a97a-565bfd532a29"
-      }
+        "projectId": "e12c48ac-8f30-46d2-8cc0-8b9a42b9f72e"
+      },
+      "appEnv": "dev"
     },
     "updates": {
-      "url": "https://u.expo.dev/fa4512ec-4554-41ab-a97a-565bfd532a29"
+      "url": "https://u.expo.dev/e12c48ac-8f30-46d2-8cc0-8b9a42b9f72e"
     }
   }
 }
