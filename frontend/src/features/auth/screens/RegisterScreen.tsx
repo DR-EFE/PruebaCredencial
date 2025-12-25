@@ -9,7 +9,7 @@ import { Input } from '@/ui/components/Input';
 import { Button } from '@/ui/components/Button';
 import { theme } from '@/ui/theme';
 
-const institutionalDomains = /@(ucb\.edu\.bo|uab\.edu\.bo)$/;
+
 
 type RegisterErrors = {
   nombre?: string;
@@ -51,11 +51,9 @@ export default function RegisterScreen() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!trimmedEmail) {
-      nextErrors.email = 'Ingresa tu correo institucional.';
+      nextErrors.email = 'Ingresa tu correo electrónico.';
     } else if (!emailRegex.test(trimmedEmail)) {
       nextErrors.email = 'Ingresa un correo electrónico válido.';
-    } else if (!institutionalDomains.test(trimmedEmail)) {
-      nextErrors.email = 'El correo debe pertenecer a un dominio institucional valido.';
     }
     if (!password) {
       nextErrors.password = 'Ingresa una contrasena.';
@@ -98,7 +96,7 @@ export default function RegisterScreen() {
       setStatus({
         type: 'success',
         message:
-          'Enviamos un enlace de verificacion a tu correo institucional. Confirmalo para finalizar el registro.',
+          'Enviamos un enlace de verificacion a tu correo. Confirmalo para finalizar el registro.',
       });
     } catch (err: any) {
       setStatus({
@@ -190,8 +188,8 @@ export default function RegisterScreen() {
           />
 
           <Input
-            label="Correo institucional"
-            placeholder="Correo institucional"
+            label="Correo electrónico"
+            placeholder="Correo electrónico"
             value={email}
             onChangeText={(value) => {
               setEmail(value);

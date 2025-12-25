@@ -1,3 +1,8 @@
+
+/**
+ Utilidades para limpiar, normalizar y extraer información del HTML de la credencial digital del IPN.
+ Decodifica entidades HTMl 
+ */
 import { ScrapedStudent } from '../types';
 
 const ENTITY_MAP: Record<string, string> = {

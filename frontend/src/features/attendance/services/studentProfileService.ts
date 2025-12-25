@@ -1,3 +1,8 @@
+/**
+Módulo de scraping controlado para obtener información pública de la credencial digital de estudiantes del IPN.
+Valida conectividad de red restringe dominios permitidos (anti-abuso / anti-SSRF) realiza la petición HTTP con headers realistas
+Extrae y devuelve un perfil estructurado del estudiante
+ */
 import * as Network from 'expo-network';
 
 import { ScrapedStudent } from '../types';

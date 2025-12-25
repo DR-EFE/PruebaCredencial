@@ -56,9 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
 
     // ✅ CORRECCIÓN: Runtime version policy
-    runtimeVersion: {
-      policy: "appVersion"
-    },
+    runtimeVersion: "1.0.0",
 
     ios: {
       supportsTablet: true,
